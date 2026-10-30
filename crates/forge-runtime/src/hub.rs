@@ -62,7 +62,7 @@ impl Acl {
 /// 账本: 每店一个 JSONL 文件, exactly-once 追加。
 pub struct Journal {
     dir: PathBuf,
-    pub write_fails: u64,
+    pub write_fails: std::sync::atomic::AtomicU64,
 }
 
 impl Journal {
@@ -71,10 +71,10 @@ impl Journal {
         std::fs::create_dir_all(&dir)?;
         Ok(Journal {
             dir,
-            write_fails: 0,
+            write_fails: std::sync::atomic::AtomicU64::new(0),
         })
     }
-    pub fn append(&mut self, l: &Letter) {
+    pub fn append(&self, l: &Letter) {
         let path = self.dir.join(format!("events-{}.jsonl", l.from));
         let line = serde_json::json!({
             "ts_ms": l.ts_ms, "from": l.from, "to": l.to, "body": l.body,
@@ -86,8 +86,21 @@ impl Journal {
             .open(&path)
             .and_then(|mut f| writeln!(f, "{line}"));
         if r.is_err() {
-            self.write_fails += 1;
+            self.write_fails.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         }
+    }
+    /// codex stderr 落账(潮汐层诊断: 无工具调用秒退的死因原文)
+    pub fn append_stderr(&self, shop: &str, stderr: &str) {
+        let path = self.dir.join(format!("events-{shop}.jsonl"));
+        let line = serde_json::json!({
+            "ev": "codex_err", "shop": shop,
+            "stderr": stderr.chars().take(1500).collect::<String>(),
+        });
+        let _ = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&path)
+            .and_then(|mut f| writeln!(f, "{line}"));
     }
     pub fn replay(&self) -> Vec<Letter> {
         let mut out = Vec::new();
