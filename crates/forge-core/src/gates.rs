@@ -80,6 +80,21 @@ pub struct VerdictTable<'a> {
 impl<'a> VerdictTable<'a> {
     pub fn render(&self, letters: &[Letter], wave_ts: u64) -> (String, usize) {
         let (answered, _) = self.gate.collect(letters, wave_ts);
+        // 理由摘录: 该店本波最后一封回信的前48字 — 打回信靠它点名缺失检查,
+        // 没有摘录时修正方在REJECT里找不到要补什么(确定性场景实测卡死3波)
+        let arb = self.gate.arbitrator.clone();
+        let last_body = |shop: &str| -> String {
+            letters.iter().rev()
+                .find(|l| l.ts_ms >= wave_ts && l.from == shop && l.to == arb)
+                // 取"||"之后的有效内容(跳过前缀), 64字 — 摘录截断在关键词中间
+                // 会让修正方 contains() 匹配失败(实测卡死3波)
+                .map(|l| {
+                    let b = &l.body;
+                    let core = b.split_once("||").map(|(_, r)| r).unwrap_or(b);
+                    core.chars().take(64).collect::<String>()
+                })
+                .unwrap_or_default()
+        };
         let mut nfix = 0;
         let mut lines = Vec::new();
         for (shop, v) in &answered {
@@ -88,7 +103,7 @@ impl<'a> VerdictTable<'a> {
                 Verdict::Clean => "CLEAN",
                 Verdict::Unknown => "CLEAN?", // 未知按乐观处理, 完整回路校验兜底
             };
-            lines.push(format!("{shop}: {mark}"));
+            lines.push(format!("{shop}: {mark} ({})", last_body(shop)));
         }
         lines.sort();
         (lines.join("\n"), nfix)
