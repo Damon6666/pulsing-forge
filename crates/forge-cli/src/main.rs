@@ -1,6 +1,9 @@
 //! forge-cli — `forge run <scenario.toml>`: 场景即数据, 一条命令一个多agent回路。
 //! Phase 0 内置确定性店员(脚本层, 无LLM): 潮汐层(codex)经 adapter 接入(见docs)。
 
+mod codex_adapter;
+mod dashboard;
+
 use forge_core::{report_is_final, CollectGate, VerdictTable};
 use forge_runtime::{Acl, Hub, OutLetter};
 use std::collections::HashMap;
@@ -237,8 +240,53 @@ pub fn run(sc: &Scenario, run_dir: &str) -> String {
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+    // forge init
+    if args.len() >= 2 && args[1] == "init" {
+        let name = args.get(2).map(|s| s.as_str()).unwrap_or("my-scenario");
+        let tmpl = format!(
+            r#"# 场景: {name}
+# forge run {name}.toml
+[meta]
+name = "{name}"
+
+[task]
+template = "写一个函数完成你的任务"
+hidden_check = "描述领域标准要求但任务信未提及的检查"
+hidden_keyword = "某个关键词"
+n_reviewers = 4
+
+[[reviewers]]
+name = "review_a"
+duty = "检查项A"
+keyword = "keyword_a"
+
+[[reviewers]]
+name = "review_b"
+duty = "检查项B"
+keyword = "keyword_b"
+
+[[reviewers]]
+name = "review_c"
+duty = "检查项C"
+keyword = "keyword_c"
+
+[[reviewers]]
+name = "review_d"
+duty = "检查项D"
+keyword = "keyword_d"
+"#
+        );
+        let fname = format!("{name}.toml");
+        std::fs::write(&fname, tmpl).expect("写模板");
+        println!("✅ 已创建 {fname} — 编辑后 forge run {fname}");
+        return;
+    }
     if args.len() < 2 || args[1] != "run" || args.len() < 3 {
-        eprintln!("用法: forge run <scenario.toml>");
+        eprintln!(
+            "用法:
+  forge init [name]     创建场景模板
+  forge run <file.toml>  运行场景"
+        );
         std::process::exit(2);
     }
     let content = std::fs::read_to_string(&args[2]).expect("读场景文件");
@@ -253,4 +301,25 @@ fn main() {
     );
     println!("{}", run(&sc, &run_dir));
     println!("产物: {run_dir}/events-*.jsonl");
+    // 内置大屏: Mermaid 泳道时序图
+    let mut journal: Vec<serde_json::Value> = Vec::new();
+    if let Ok(rd) = std::fs::read_dir(&run_dir) {
+        for entry in rd.flatten() {
+            let name = entry.file_name().to_string_lossy().to_string();
+            if !name.starts_with("events-") || !name.ends_with(".jsonl") {
+                continue;
+            }
+            if let Ok(content) = std::fs::read_to_string(entry.path()) {
+                for line in content.lines() {
+                    if let Ok(v) = serde_json::from_str::<serde_json::Value>(line) {
+                        if v["ev"] == "reply_out" {
+                            journal.push(v);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    dashboard::render_sequence_html(&journal, &sc.meta.name, &format!("{run_dir}/sequence.html"));
+    println!("大屏: {run_dir}/sequence.html");
 }
