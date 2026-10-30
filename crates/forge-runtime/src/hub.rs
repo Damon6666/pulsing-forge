@@ -18,15 +18,23 @@ pub struct Acl {
 
 impl Acl {
     pub fn from_pairs(pairs: &[(&str, &[&str])]) -> Self {
-        Acl { rules: pairs.iter()
-            .map(|(k, v)| (k.to_string(), v.iter().map(|s| s.to_string()).collect()))
-            .collect() }
+        Acl {
+            rules: pairs
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.iter().map(|s| s.to_string()).collect()))
+                .collect(),
+        }
     }
     fn matches(pat: &str, name: &str) -> bool {
-        pat.strip_suffix('*').map(|p| name.starts_with(p)).unwrap_or(pat == name)
+        pat.strip_suffix('*')
+            .map(|p| name.starts_with(p))
+            .unwrap_or(pat == name)
     }
     fn allowed_for(&self, from: &str) -> Option<&Vec<String>> {
-        self.rules.iter().find(|(k, _)| Acl::matches(k, from)).map(|(_, v)| v)
+        self.rules
+            .iter()
+            .find(|(k, _)| Acl::matches(k, from))
+            .map(|(_, v)| v)
     }
     /// 越权检查: 返回 Err(教学性错误) 或 Ok(收拢后的目标)。
     /// broadcast 用 `collapse`: 白名单外目标自动略去(报错会引发重试风暴, taxonomy #2)。
@@ -34,15 +42,19 @@ impl Acl {
         match self.allowed_for(from) {
             None => Ok(()),
             Some(allow) if allow.iter().any(|t| Acl::matches(t, to)) => Ok(()),
-            Some(allow) => Err(format!("收件人 {to:?} 不在 {from:?} 的白名单里; 允许: {allow:?}")),
+            Some(allow) => Err(format!(
+                "收件人 {to:?} 不在 {from:?} 的白名单里; 允许: {allow:?}"
+            )),
         }
     }
     pub fn collapse(&self, from: &str, targets: &[String]) -> Vec<String> {
         match self.allowed_for(from) {
             None => targets.to_vec(),
-            Some(allow) => targets.iter()
+            Some(allow) => targets
+                .iter()
                 .filter(|t| allow.iter().any(|p| Acl::matches(p, t)))
-                .cloned().collect(),
+                .cloned()
+                .collect(),
         }
     }
 }
@@ -57,7 +69,10 @@ impl Journal {
     pub fn new(dir: impl Into<PathBuf>) -> std::io::Result<Self> {
         let dir = dir.into();
         std::fs::create_dir_all(&dir)?;
-        Ok(Journal { dir, write_fails: 0 })
+        Ok(Journal {
+            dir,
+            write_fails: 0,
+        })
     }
     pub fn append(&mut self, l: &Letter) {
         let path = self.dir.join(format!("events-{}.jsonl", l.from));
@@ -65,9 +80,14 @@ impl Journal {
             "ts_ms": l.ts_ms, "from": l.from, "to": l.to, "body": l.body,
             "ev": "reply_out",
         });
-        let r = OpenOptions::new().create(true).append(true).open(&path)
+        let r = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&path)
             .and_then(|mut f| writeln!(f, "{line}"));
-        if r.is_err() { self.write_fails += 1; }
+        if r.is_err() {
+            self.write_fails += 1;
+        }
     }
     pub fn replay(&self) -> Vec<Letter> {
         let mut out = Vec::new();
@@ -75,8 +95,14 @@ impl Journal {
             let mut files: Vec<_> = rd.flatten().map(|e| e.path()).collect();
             files.sort();
             for f in files {
-                let name = f.file_name().unwrap_or_default().to_string_lossy().to_string();
-                if !name.starts_with("events-") || !name.ends_with(".jsonl") { continue; }
+                let name = f
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string();
+                if !name.starts_with("events-") || !name.ends_with(".jsonl") {
+                    continue;
+                }
                 if let Ok(content) = std::fs::read_to_string(&f) {
                     for line in content.lines() {
                         if let Ok(v) = serde_json::from_str::<serde_json::Value>(line) {
@@ -126,9 +152,13 @@ pub struct Hub {
 impl Hub {
     pub fn new(dir: impl Into<PathBuf>, shops: Vec<String>, acl: Acl) -> std::io::Result<Self> {
         let mut mailboxes = HashMap::new();
-        for s in &shops { mailboxes.insert(s.clone(), Vec::new()); }
+        for s in &shops {
+            mailboxes.insert(s.clone(), Vec::new());
+        }
         Ok(Hub {
-            shops, acl, mailboxes,
+            shops,
+            acl,
+            mailboxes,
             journal: Journal::new(dir)?,
             agents: HashMap::new(),
             turns: HashMap::new(),
@@ -157,9 +187,17 @@ impl Hub {
             Some((prefix, arb)) if from.starts_with(prefix) && to == arb => true,
             _ => silent,
         };
-        let l = Letter { ts_ms: self.tick(), from: from.into(), to: to.into(), body: body.into() };
+        let l = Letter {
+            ts_ms: self.tick(),
+            from: from.into(),
+            to: to.into(),
+            body: body.into(),
+        };
         self.journal.append(&l);
-        self.mailboxes.entry(to.to_string()).or_default().push(l.clone());
+        self.mailboxes
+            .entry(to.to_string())
+            .or_default()
+            .push(l.clone());
         if !silent {
             self.run_turn(to);
         }
@@ -167,7 +205,13 @@ impl Hub {
     }
 
     /// 广播: 越权目标自动收拢(不报错, taxonomy #2)。
-    pub fn broadcast(&mut self, from: &str, targets: &[String], body: &str, silent: bool) -> Vec<String> {
+    pub fn broadcast(
+        &mut self,
+        from: &str,
+        targets: &[String],
+        body: &str,
+        silent: bool,
+    ) -> Vec<String> {
         let effective = self.acl.collapse(from, targets);
         for t in effective.clone() {
             let _ = self.send(from, &t, body, silent);
@@ -177,14 +221,19 @@ impl Hub {
 
     /// 破坏性读(回看走 journal.replay()).
     pub fn drain(&mut self, shop: &str) -> Vec<Letter> {
-        self.mailboxes.get_mut(shop).map(|m| std::mem::take(m)).unwrap_or_default()
+        self.mailboxes
+            .get_mut(shop)
+            .map(|m| std::mem::take(m))
+            .unwrap_or_default()
     }
 
     /// 回合: 取唤醒信, 调店员函数, 发出其全部产出。
     fn run_turn(&mut self, shop: &str) {
         *self.turns.entry(shop.to_string()).or_insert(0) += 1;
         let mailbox = self.drain(shop);
-        let Some(trigger) = mailbox.last().cloned() else { return };
+        let Some(trigger) = mailbox.last().cloned() else {
+            return;
+        };
         let snapshot = self.journal.replay();
         let outs = match self.agents.get(shop) {
             Some(f) => f(&trigger, &snapshot),
@@ -197,15 +246,27 @@ impl Hub {
 
     /// 外部点火(编排器通道, 不受店员ACL约束面: 编排器是规则之源)。
     pub fn ignite(&mut self, to: &str, body: &str) -> Result<(), String> {
-        let l = Letter { ts_ms: self.tick(), from: "orchestrator".into(), to: to.into(), body: body.into() };
+        let l = Letter {
+            ts_ms: self.tick(),
+            from: "orchestrator".into(),
+            to: to.into(),
+            body: body.into(),
+        };
         self.journal.append(&l);
-        self.mailboxes.entry(to.to_string()).or_default().push(l.clone());
+        self.mailboxes
+            .entry(to.to_string())
+            .or_default()
+            .push(l.clone());
         self.run_turn(to);
         Ok(())
     }
 
-    pub fn letters(&self) -> Vec<Letter> { self.journal.replay() }
-    pub fn turn_count(&self, shop: &str) -> u64 { *self.turns.get(shop).unwrap_or(&0) }
+    pub fn letters(&self) -> Vec<Letter> {
+        self.journal.replay()
+    }
+    pub fn turn_count(&self, shop: &str) -> u64 {
+        *self.turns.get(shop).unwrap_or(&0)
+    }
 }
 
 #[cfg(test)]
@@ -213,7 +274,11 @@ mod tests {
     use super::*;
 
     fn out(to: &str, body: &str, silent: bool) -> OutLetter {
-        OutLetter { to: to.into(), body: body.into(), silent }
+        OutLetter {
+            to: to.into(),
+            body: body.into(),
+            silent,
+        }
     }
     fn clean(dir: &str) {
         let _ = std::fs::remove_dir_all(dir);
@@ -223,8 +288,12 @@ mod tests {
     #[test]
     fn echo_guard() {
         clean("/tmp/forge-test-echo");
-        let mut hub = Hub::new("/tmp/forge-test-echo",
-            vec!["a".into(), "b".into()], Acl::default()).unwrap();
+        let mut hub = Hub::new(
+            "/tmp/forge-test-echo",
+            vec!["a".into(), "b".into()],
+            Acl::default(),
+        )
+        .unwrap();
         assert!(hub.send("a", "a", "note", false).is_err());
         assert!(hub.send("a", "a", "note", true).is_ok());
     }
@@ -234,12 +303,31 @@ mod tests {
     fn acl_reject_and_collapse() {
         clean("/tmp/forge-test-acl");
         let acl = Acl::from_pairs(&[("review_*", &["judge"]), ("judge", &["*"])]);
-        let mut hub = Hub::new("/tmp/forge-test-acl",
-            vec!["judge".into(), "writer".into(), "review_1".into(), "review_2".into()], acl).unwrap();
+        let mut hub = Hub::new(
+            "/tmp/forge-test-acl",
+            vec![
+                "judge".into(),
+                "writer".into(),
+                "review_1".into(),
+                "review_2".into(),
+            ],
+            acl,
+        )
+        .unwrap();
         assert!(hub.send("review_1", "writer", "DRAFT", false).is_err());
-        let sent = hub.broadcast("review_1", &["judge".into(), "writer".into()], "REVIEW", false);
+        let sent = hub.broadcast(
+            "review_1",
+            &["judge".into(), "writer".into()],
+            "REVIEW",
+            false,
+        );
         assert_eq!(sent, vec!["judge".to_string()]);
-        let sent2 = hub.broadcast("judge", &["review_1".into(), "review_2".into()], "群审", false);
+        let sent2 = hub.broadcast(
+            "judge",
+            &["review_1".into(), "review_2".into()],
+            "群审",
+            false,
+        );
         assert_eq!(sent2.len(), 2);
     }
 
@@ -248,8 +336,12 @@ mod tests {
     fn auto_silence_reviewers() {
         clean("/tmp/forge-test-silence");
         let acl = Acl::from_pairs(&[("r*", &["judge"])]);
-        let mut hub = Hub::new("/tmp/forge-test-silence",
-            vec!["judge".into(), "r1".into()], acl).unwrap();
+        let mut hub = Hub::new(
+            "/tmp/forge-test-silence",
+            vec!["judge".into(), "r1".into()],
+            acl,
+        )
+        .unwrap();
         hub.auto_silence = Some(("r".into(), "judge".into()));
         hub.register("judge", Box::new(|_, _| vec![out("r1", "ACK", false)]));
         let _ = hub.send("r1", "judge", "CLEAN=r1", false);
@@ -260,8 +352,12 @@ mod tests {
     #[test]
     fn ledger_is_registry() {
         clean("/tmp/forge-test-ledger");
-        let mut hub = Hub::new("/tmp/forge-test-ledger",
-            vec!["a".into(), "b".into()], Acl::default()).unwrap();
+        let mut hub = Hub::new(
+            "/tmp/forge-test-ledger",
+            vec!["a".into(), "b".into()],
+            Acl::default(),
+        )
+        .unwrap();
         let _ = hub.send("a", "b", "hello", true);
         let drained = hub.drain("b");
         assert_eq!(drained.len(), 1);

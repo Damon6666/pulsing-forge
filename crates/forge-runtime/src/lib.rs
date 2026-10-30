@@ -1,2 +1,2 @@
 pub mod hub;
-pub use hub::{Acl, Hub, Journal, OutLetter, AgentFn};
+pub use hub::{Acl, AgentFn, Hub, Journal, OutLetter};

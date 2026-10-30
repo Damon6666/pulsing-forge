@@ -48,7 +48,16 @@ Scenarios are **data, not code** — see `scenarios/` and `docs/scenario-schema.
 
 ## Status
 
-Phase 0 — substrate hardened by a 50-round stress campaign (order-correctness 93%+, zero letter loss, zero journal corruption). See `docs/failure-taxonomy.md` for the full battle record.
+| Phase | Content | State |
+|---|---|---|
+| 0 | Core gates (collect/verdict/registry-relay/closure), runtime (hub/journal/ACL), CLI `forge run` | ✅ Shipped |
+| 1 | 3 scenario library, adapter interface, deterministic CI gate | ✅ Shipped |
+| 2 | Consistent-hash sharding (`forge-core::Ring`), GitHub Actions CI, registry spec | ✅ Shipped |
+| 3 | Ledger format spec (`docs/ledger-format.md`), control-port auth (`forge-core::TokenRing`) | ✅ Shipped |
+
+**17/17 unit tests green · 3/3 scenarios PASS on CI · zero LLM dependency in the deterministic tier.**
+
+Substrate hardened by a 50-round stress campaign (order-correctness 93%+, zero letter loss). See [`docs/failure-taxonomy.md`](docs/failure-taxonomy.md) — 15 failure modes, each with its structural fix.
 
 ## License
 
