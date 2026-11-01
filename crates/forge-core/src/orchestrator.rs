@@ -422,14 +422,14 @@ impl RelayChainOrchestrator {
         if is_last {
             let shop = &self.steps[step].0;
             format!(
-                "TASK=变换[{}] 输入[{}] 完成后pulsing_send(to={},silent=true,message=REPORT=RELAY_RESULT=变换后文本)",
+                "第一步: pulsing_drain_mail() 读你信箱里的全部信                 第二步: 对以下文本执行变换「{}」: {}                 第三步【唯一正确动作】: 调用 pulsing_send 工具, 参数 to={}, silent=true, message=REPORT=RELAY_RESULT=变换后的文本                 铁律: 只做这一个变换; 禁止纯文字回复; 必须调用 pulsing_send 工具",
                 transform, input_text, shop
             )
         } else {
             let next = &self.steps[step + 1].0;
             format!(
-                "TASK=变换[{}] 输入[{}] 完成后pulsing_send(to={},silent=false,message=RELAY=变换后文本) 铁律:只做这一个变换",
-                transform, input_text, next
+                "第一步: pulsing_drain_mail() 读你信箱里的全部信                 第二步: 对以下文本执行变换「{}」: {}                 第三步【唯一正确动作】: 调用 pulsing_send 工具, 参数 to={}, silent=false, message=RELAY=变换后的文本                 铁律: 只做这一个变换; 禁止纯文字回复; 必须调用 pulsing_send 工具; 收件人只能是 {}",
+                transform, input_text, next, next
             )
         }
     }

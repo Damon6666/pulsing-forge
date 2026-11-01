@@ -1,6 +1,8 @@
 //! forge-cli — `forge run <scenario.toml>`: 场景即数据, 一条命令一个多agent回路。
 //! Phase 0 内置确定性店员(脚本层, 无LLM): 潮汐层(codex)经 adapter 接入(见docs)。
 
+mod run_tide_orchestrated;
+
 mod codex_adapter;
 mod dashboard;
 
@@ -374,6 +376,12 @@ keyword = "keyword_d"
     );
     // adapter 分发: codex=真LLM潮汐层, builtin=确定性层
     if sc.adapter == "codex" {
+        // 编排器 + 真 LLM = 完整产品路径
+        if sc.orchestrator != "legacy" {
+            println!("{}", run_tide_orchestrated::run_tide_orchestrated(&sc, &run_dir));
+            println!("产物: {run_dir}/events-*.jsonl");
+            return;
+        }
         println!("{}", run_codex(&sc, &run_dir));
         println!("产物: {run_dir}/events-*.jsonl");
         return;
