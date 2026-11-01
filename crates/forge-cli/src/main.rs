@@ -14,7 +14,10 @@ struct Scenario {
     task: Task,
     #[serde(default)]
     reviewers: Vec<Reviewer>,
+    #[serde(default = "default_adapter")]
+    adapter: String,
 }
+fn default_adapter() -> String { "builtin".to_string() }
 #[derive(Debug, serde::Deserialize)]
 struct Meta {
     name: String,
@@ -281,6 +284,27 @@ keyword = "keyword_d"
         println!("✅ 已创建 {fname} — 编辑后 forge run {fname}");
         return;
     }
+    if args.len() >= 2 && args[1] == "attach" {
+        // forge attach --control <port> --shop <name> — MCP stdio→TCP 桥
+        // (由 codex 作为 MCP server 子进程调用)
+        let mut port = 12400u16;
+        let mut shop = None;
+        let mut it = args.iter().peekable();
+        while let Some(a) = it.next() {
+            match a.as_str() {
+                "--control" => { if let Some(p) = it.next() { port = p.parse().unwrap_or(12400); } }
+                "--shop" => { if let Some(s) = it.next() { shop = Some(s.clone()); } }
+                _ => {}
+            }
+        }
+        let rt = tokio::runtime::Runtime::new().expect("rt");
+        rt.block_on(async {
+            if let Err(e) = forge_runtime::run_attach(port, shop).await {
+                eprintln!("attach 错误: {e}");
+            }
+        });
+        return;
+    }
     if args.len() >= 2 && args[1] == "serve" {
         // forge serve — 启动潮汐层服务器(控制口+店调度器)
         let port: u16 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(12400);
@@ -330,6 +354,12 @@ keyword = "keyword_d"
             .unwrap()
             .as_secs()
     );
+    // adapter 分发: codex=真LLM潮汐层, builtin=确定性层
+    if sc.adapter == "codex" {
+        println!("{}", run_codex(&sc, &run_dir));
+        println!("产物: {run_dir}/events-*.jsonl");
+        return;
+    }
     println!("{}", run(&sc, &run_dir));
     println!("产物: {run_dir}/events-*.jsonl");
     // 内置大屏: Mermaid 泳道时序图
@@ -428,4 +458,154 @@ fn test_tide() {
 
     println!("--- 管道验证: {pass} PASS / {fail} FAIL ---");
     if fail > 0 { std::process::exit(1); }
+}
+
+/// 潮汐层场景运行: 真LLM agent 通过 codex exec 每回合调用
+fn run_codex(sc: &Scenario, run_dir: &str) -> String {
+    use forge_runtime::TideHub;
+    use std::sync::Arc;
+
+    let port = 12410u16;
+    let _ = std::fs::remove_dir_all(run_dir);
+    std::fs::create_dir_all(format!("{run_dir}/config")).expect("创建目录");
+
+    // provider.toml
+    let api_key = std::env::var("FORGE_API_KEY")
+        .unwrap_or_else(|_| "missing-key".to_string());
+    let base_url = std::env::var("FORGE_BASE_URL")
+        .unwrap_or_else(|_| "http://127.0.0.1:4011/v1".to_string());
+    std::fs::write(format!("{run_dir}/config/provider.toml"),
+        format!("base_url = \"{base_url}\"\napi_key = \"{api_key}\"\nwire_api = \"responses\"\n"))
+        .expect("写 provider");
+
+    // 1. 创建 TideHub
+    let mut hub = TideHub::new(run_dir, port).expect("TideHub");
+    hub.add_shop("judge", "glm-5-turbo");
+    hub.add_shop("writer", "glm-5-turbo");
+    for r in &sc.reviewers { hub.add_shop(&r.name, "glm-5-turbo"); }
+    hub.codex_bin = std::env::var("FORGE_CODEX_BIN")
+        .unwrap_or_else(|_| "/home/daimeng/bin/codex".to_string());
+    hub.provider_path = format!("{run_dir}/config/provider.toml");
+    hub.auto_silence = Some(("review".into(), "judge".into()));
+
+    // ACL
+    let mut rules: Vec<(String, Vec<String>)> = vec![
+        ("writer".into(), vec!["judge".into()]),
+        ("judge".into(), vec!["*".into()]),
+    ];
+    for r in &sc.reviewers {
+        rules.push((format!("{}*", r.name), vec!["judge".into()]));
+    }
+    hub.acl = Acl { rules };
+
+    // forge 自身路径(attach 子命令用)
+    let forge_bin = std::env::current_exe()
+        .map(|p| p.display().to_string())
+        .unwrap_or_else(|_| "forge".to_string());
+
+    let hub = Arc::new(hub);
+
+    // 2. 启动 TCP 服务器 + 店调度器(后台线程)
+    let hub2 = hub.clone();
+    std::thread::spawn(move || {
+        let rt = tokio::runtime::Runtime::new().expect("rt");
+        rt.block_on(async {
+            let h = hub2.clone();
+            tokio::spawn(async move {
+                if let Err(e) = forge_runtime::serve_control(h, port).await {
+                    eprintln!("控制口错误: {e}");
+                }
+            });
+            // 店调度器
+            let shops: Vec<String> = {
+                let h = hub2.clone();
+                // 从 Arc<TideHub> 获取店名列表
+                h.shops.keys().cloned().collect()
+            };
+            for s in shops {
+                let h = hub2.clone();
+                let shop = s.clone();
+                tokio::spawn(async move {
+                    forge_runtime::shop_scheduler(h, shop).await;
+                });
+            }
+            // 保持运行
+            loop { tokio::time::sleep(std::time::Duration::from_secs(3600)).await; }
+        });
+    });
+    std::thread::sleep(std::time::Duration::from_millis(1000));
+
+    // 3. 预置规程信(编排器通道, 不走 TCP)
+    let reviewer_names: Vec<String> = sc.reviewers.iter().map(|r| r.name.clone()).collect();
+    let task_text = format!("TASK={}", sc.task.template);
+
+    // judge 规程
+    let _ = hub.send("orch", "judge", &format!(
+        "【指挥规程judge】见TASK=: pulsing_send(to='writer', silent=false, message='TASK=原文||写手动作:写完整脚本放```python围栏后 pulsing_send(to=\"judge\",silent=false,message=\"DRAFT=```python全文```\")')\n\
+         见DRAFT=/REVISED=: pulsing_broadcast(to_list={reviewer_names:?}, message='REVIEW=群审||各店只查自己职责||底稿如下||'+脚本原文)\n\
+         收齐后: 全CLEAN→REPORT收尾; 有不通→一封REJECT打回(含缺失检查名)\n\
+         铁律: 绝不自己写代码; 收件人只填店名。"
+    ), true, false);
+
+    // writer 规程
+    let _ = hub.send("orch", "writer",
+        "【写手规程writer】见TASK=: 按任务写python函数, 完整脚本放```python围栏, pulsing_send(to='judge', silent=false, message='DRAFT=```python全文```')\n\
+         见REJECT=: 按意见补齐后重交 message='REVISED=```python全文```'\n\
+         铁律: 只给judge发信; 回信必须带```围栏。", true, false);
+
+    // 审查店规程
+    for r in &sc.reviewers {
+        let _ = hub.send("orch", &r.name, &format!(
+            "【审查规程{name}】见REVIEW=: 只查「{duty}」一事({keyword}应在稿中出现)。\n\
+             合格: pulsing_send(to='judge', silent=true, message='CLEAN={name}||{duty}: 已覆盖')\n\
+             不合格: pulsing_send(to='judge', silent=true, message='NEEDS_FIX={name}||{duty}: 缺失({keyword})')\n\
+             铁律: 只回judge且silent=true。", name = r.name, duty = r.duty, keyword = r.keyword
+        ), true, false);
+    }
+
+    // 4. 点火
+    println!("点火: {task_text}");
+    let _ = hub.send("orch", "judge", &format!(
+        "{task_text}。第一步 pulsing_drain_mail() 读规程; 第二步派单给writer; 然后结束。"
+    ), false, false);
+
+    // 5. 等待终局(REPORT or 超时)
+    let timeout_secs = 300u64; // 5 分钟
+    let start = std::time::Instant::now();
+    let n_reviewers = sc.reviewers.len();
+    loop {
+        std::thread::sleep(std::time::Duration::from_secs(5));
+        let letters = hub.journal.replay();
+        let has_report = letters.iter().any(|l| l.from == "judge" && l.body.starts_with("REPORT="));
+        let elapsed = start.elapsed().as_secs();
+        if has_report {
+            println!("✅ judge 已收尾 ({elapsed}s, {} 封信)", letters.len());
+            break;
+        }
+        if elapsed > timeout_secs {
+            println!("⏰ 超时 {timeout_secs}s ({} 封信)", letters.len());
+            break;
+        }
+        if elapsed % 30 == 0 {
+            println!("  等待中: {elapsed}s, {} 封信", letters.len());
+        }
+    }
+
+    // 6. 判分
+    let letters = hub.journal.replay();
+    let complete = report_is_final(&letters, "judge", "review", n_reviewers, n_reviewers);
+    let hidden = &sc.task.hidden_keyword;
+    let final_script_ok = letters.iter().rev()
+        .find(|l| l.from == "writer" && (l.body.starts_with("DRAFT=") || l.body.starts_with("REVISED=")))
+        .map(|l| l.body.contains(hidden)).unwrap_or(false);
+    let state = if complete && final_script_ok { "PASS" }
+        else if final_script_ok { "DEGENERATE" } else { "FAIL" };
+    let turns: u64 = hub.shops.values()
+        .map(|s| s.turns_done.load(std::sync::atomic::Ordering::Relaxed))
+        .sum();
+
+    format!(
+        "scenario: {} (codex)\nstate: {}\nletters: {}\nturns: {}\ncomplete_loop: {}\nhidden_check: {}\n",
+        sc.meta.name, state, letters.len(), turns, complete, final_script_ok
+    )
 }
