@@ -398,6 +398,104 @@ impl Orchestrator for SaboteurOrchestrator {
     }
 }
 
+
+/// 中继链: 信息隔离 + 逐跳推进 + 转发校验
+pub struct RelayChainOrchestrator {
+    pub steps: Vec<(String, String)>,
+    pub input: String,
+    pub current_step: std::sync::atomic::AtomicUsize,
+}
+
+impl RelayChainOrchestrator {
+    pub fn new(steps: Vec<(String, String)>, input: &str) -> Self {
+        RelayChainOrchestrator {
+            steps,
+            input: input.to_string(),
+            current_step: std::sync::atomic::AtomicUsize::new(0),
+        }
+    }
+
+    fn make_instruction(&self, step: usize) -> String {
+        let transform = &self.steps[step].1;
+        let is_last = step == self.steps.len() - 1;
+        let input_text = if step == 0 { self.input.clone() } else { "上游文本".to_string() };
+        if is_last {
+            let shop = &self.steps[step].0;
+            format!(
+                "TASK=变换[{}] 输入[{}] 完成后pulsing_send(to={},silent=true,message=REPORT=RELAY_RESULT=变换后文本)",
+                transform, input_text, shop
+            )
+        } else {
+            let next = &self.steps[step + 1].0;
+            format!(
+                "TASK=变换[{}] 输入[{}] 完成后pulsing_send(to={},silent=false,message=RELAY=变换后文本) 铁律:只做这一个变换",
+                transform, input_text, next
+            )
+        }
+    }
+}
+
+impl Orchestrator for RelayChainOrchestrator {
+    fn setup(&self, _ctx: &OrchestratorCtx) -> Vec<SetupLetter> {
+        self.steps.iter().map(|(shop, transform)| {
+            SetupLetter {
+                shop: shop.clone(),
+                to: shop.clone(),
+                silent: true,
+                body: format!("你收到文本和一个变换指令 执行[{}] 只做这一个变换", transform),
+            }
+        }).collect()
+    }
+
+    fn ignition(&self) -> (String, String) {
+        let shop = self.steps[0].0.clone();
+        (shop, self.make_instruction(0))
+    }
+
+    fn on_letter(&self, letter: &Letter, _ctx: &OrchestratorCtx) -> Vec<OrchestratorAction> {
+        let mut actions = Vec::new();
+        let current = self.current_step.load(std::sync::atomic::Ordering::SeqCst);
+
+        if letter.body.starts_with("RELAY=") && current + 1 < self.steps.len() {
+            self.current_step.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            let next = current + 1;
+            let output: String = letter.body.chars().skip(6).take(200).collect();
+            let instruction = self.make_instruction(next).replace("上游文本", &output);
+            actions.push(OrchestratorAction::Inject {
+                from: "orchestrator".to_string(),
+                to: self.steps[next].0.clone(),
+                body: instruction,
+                silent: false,
+            });
+        }
+
+        if letter.body.starts_with("REPORT=RELAY_RESULT=") {
+            actions.push(OrchestratorAction::Complete {
+                state: "PASS".to_string(),
+                detail: format!("中继链{}步完成", self.steps.len()),
+            });
+        }
+        actions
+    }
+
+    fn finalize(&self, ctx: &OrchestratorCtx) -> FinalState {
+        // 从账本数步(不依赖 on_letter 回调 — 确定性Hub同步走完全链后才进编排器循环)
+        let relay_count = ctx.letters.iter()
+            .filter(|l| l.body.starts_with("RELAY="))
+            .count();
+        let has_report = ctx.letters.iter().any(|l| l.body.starts_with("REPORT=RELAY_RESULT="));
+        let total = self.steps.len();
+        // N 步链: N-1 封 RELAY + 1 封 REPORT
+        if has_report && relay_count >= total - 1 {
+            FinalState::Pass
+        } else if has_report {
+            FinalState::Degenerate(format!("REPORT但只有{} / {}跳RELAY", relay_count, total - 1))
+        } else {
+            FinalState::Fail(format!("中继链断裂: 只有{} / {}跳RELAY, 无REPORT", relay_count, total - 1))
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

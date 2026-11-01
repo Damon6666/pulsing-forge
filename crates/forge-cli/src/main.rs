@@ -37,6 +37,8 @@ struct Stage {
 #[derive(Debug, serde::Deserialize)]
 struct Meta {
     name: String,
+    #[serde(default)]
+    relay_input: String,
 }
 #[derive(Debug, serde::Deserialize)]
 struct Task {
@@ -659,6 +661,13 @@ fn run_orchestrated(sc: &Scenario, run_dir: &str) -> String {
                              "verifier_a".to_string(), "verifier_b".to_string()];
             (shops, Box::new(forge_core::SaboteurOrchestrator { judge: "judge".to_string() }))
         }
+        "relay" => {
+            let stages: Vec<(String, String)> = sc.stages.iter()
+                .map(|s| (s.shop.clone(), s.duty.clone())).collect();
+            let shop_names: Vec<String> = stages.iter().map(|(s, _)| s.clone()).collect();
+            let input = sc.meta.relay_input.clone();
+            (shop_names, Box::new(forge_core::RelayChainOrchestrator::new(stages, &input)))
+        }
         "review" | "legacy" => {
             // 默认走旧写审路径(确定性层)
             return run(sc, run_dir);
@@ -692,6 +701,15 @@ fn run_orchestrated(sc: &Scenario, run_dir: &str) -> String {
             ("verifier_a".into(), vec!["judge".into()]),
             ("verifier_b".into(), vec!["judge".into()]),
         ],
+        "relay" => {
+            let mut rules = Vec::new();
+            for i in 0..shops.len() {
+                let mut allow = vec!["orchestrator".to_string(), shops[i].clone()];
+                if i + 1 < shops.len() { allow.push(shops[i+1].clone()); }
+                rules.push((shops[i].clone(), allow));
+            }
+            rules
+        }
         _ => vec![],
     };
 
@@ -774,6 +792,24 @@ fn run_orchestrated(sc: &Scenario, run_dir: &str) -> String {
                     vec![OutLetter { to: j2.clone(), body: "REPORT=TOTAL=583220||内鬼已被纠正".into(), silent: true }]
                 } else { vec![] }
             }));
+        }
+        "relay" => {
+            for (i, shop) in shops.iter().enumerate() {
+                let is_last = i == shops.len() - 1;
+                let next = if !is_last { shops[i+1].clone() } else { shop.clone() };
+                let shop2 = shop.clone();
+                hub.register(shop, Box::new(move |trig, _| {
+                    if trig.body.starts_with("TASK=") || trig.body.starts_with("RELAY=") {
+                        if is_last {
+                            vec![OutLetter { to: shop2.clone(),
+                                body: "REPORT=RELAY_RESULT=最终文本".to_string(), silent: true }]
+                        } else {
+                            vec![OutLetter { to: next.clone(),
+                                body: "RELAY=变换后文本".to_string(), silent: false }]
+                        }
+                    } else { vec![] }
+                }));
+            }
         }
         _ => {}
     }
