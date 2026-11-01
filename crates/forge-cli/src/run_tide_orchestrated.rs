@@ -127,7 +127,10 @@ pub fn run_tide_orchestrated(sc: &crate::Scenario, run_dir: &str) -> String {
     for shop in &shops { hub.add_shop(shop, "glm-5-turbo"); }
     hub.codex_bin = std::env::var("FORGE_CODEX_BIN")
         .unwrap_or_else(|_| "/home/daimeng/bin/codex".to_string());
-    hub.provider_path = format!("{run_dir}/config/provider.toml");
+    hub.provider_path = std::fs::canonicalize(
+        format!("{run_dir}/config/provider.toml"))
+    .map(|p| p.display().to_string())
+    .unwrap_or_else(|_| format!("{run_dir}/config/provider.toml"));
     hub.acl = build_acl(&sc.orchestrator, &shops);
     hub.auto_silence = Some(("review".into(), "judge".into()));
 
@@ -161,13 +164,13 @@ pub fn run_tide_orchestrated(sc: &crate::Scenario, run_dir: &str) -> String {
     let empty: Vec<forge_core::Letter> = vec![];
     let setup_ctx = OrchestratorCtx { letters: &empty, shops: &shops };
     for s in orch.setup(&setup_ctx) {
-        tide_send(&hub, port, &s.shop, &s.to, &s.body, s.silent);
+        let _ = hub.send(&s.shop, &s.to, &s.body, s.silent, false);
     }
 
     // 5. 点火(经 TCP, 非静默 → 触发第一个 codex 回合)
     let (ign_to, ign_body) = orch.ignition();
     println!("点火 → {ign_to}: {}", ign_body.chars().take(30).collect::<String>().as_str());
-    tide_send(&hub, port, "orchestrator", &ign_to, &ign_body, false);
+    let _ = hub.send("orchestrator", &ign_to, &format!("{ign_body} 任务: {}", sc.task.template), false, false);
 
     // 6. 编排器循环: 轮询账本、检测闸门、注入指令(5 秒一查, codex 回合需时间)
     let timeout_secs: u64 = std::env::var("FORGE_TIMEOUT")
@@ -189,13 +192,12 @@ pub fn run_tide_orchestrated(sc: &crate::Scenario, run_dir: &str) -> String {
                 match action {
                     OrchestratorAction::Inject { from, to, body, silent } => {
                         println!("  [编排器] 注入 → {to}: {}", body.chars().take(25).collect::<String>().as_str());
-                        tide_send(&hub, port, &from, &to, &body, silent);
+                        let _ = hub.send(&from, &to, &body, silent, false);
                         injected = true;
                     }
                     OrchestratorAction::Kick { shop, reason } => {
                         println!("  [编排器] 踢 → {shop}: {reason}");
-                        tide_send(&hub, port, "orchestrator", &shop,
-                            &format!("KICK=继续任务: {reason}"), false);
+                        let _ = hub.send("orchestrator", &shop, &format!("KICK=继续任务: {reason}"), false, false);
                         injected = true;
                     }
                     OrchestratorAction::Complete { state, detail } => {
