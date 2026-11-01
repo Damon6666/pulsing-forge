@@ -144,7 +144,32 @@ impl TideHub {
             .unwrap_or_default()
     }
 
-    /// 回合提示词: 嵌入唤醒信
+    /// 回合提示词: 嵌入唤醒信 + 信箱全部待读信(规程信不丢 — debate/pipeline worker 靠它知道怎么调工具)
+    pub fn turn_prompt_full(&self, shop: &str, letters: &[Letter]) -> String {
+        let trigger = letters.last();
+        let others: Vec<&Letter> = letters.iter().rev().skip(1).collect();
+        let mut body = format!(
+            "你是协作团队中的一员。店名: {shop}。职责: {shop}\n\n\
+             --- 触发信(最新) ---\n{trig}\n--- 触发信结束 ---\n",
+            shop = shop,
+            trig = trigger.map(|l| format!("来自 {}: {}", l.from, l.body)).unwrap_or_default()
+        );
+        if !others.is_empty() {
+            body.push_str("\n--- 信箱其他信件(规程/上下文, 按时间倒序) ---\n");
+            for l in others.iter().take(5) {  // 最多5封防过长
+                body.push_str(&format!("来自 {}: {}\n", l.from, l.body));
+            }
+            body.push_str("--- 其他信件结束 ---\n");
+        }
+        body.push_str(
+            "\n【必须调用工具】按信件指示调用工具完成任务\
+             (可多次调用: pulsing_send/pulsing_broadcast/pulsing_drain_mail/pulsing_health);\
+             若信件未指定动作, 则调用 pulsing_send 发送结果后结束。禁止纯文字回复、禁止总结、禁止解释。"
+        );
+        body
+    }
+
+    /// 兼容: 单信版(旧路径)
     pub fn turn_prompt(&self, shop: &str, letter: &Letter) -> String {
         format!(
             "你是协作团队中的一员。店名: {shop}。职责: {shop}\n\n\
@@ -185,9 +210,20 @@ impl TideHub {
             .unwrap_or_else(|| "http://127.0.0.1:4011/v1".to_string())
     }
 
-    /// codex 回合: spawn → 等待 → 检查产出 → 未读信重试
-    /// (同步版: 调用方在 tokio::task::spawn_blocking 里调)
+    /// codex 回合(全信箱版): 提示词包含全部信件(规程+触发都在 — worker 靠规程信知道怎么调工具)
+    pub fn run_turn_full(&self, shop: &str, all_letters: &[Letter]) -> Result<(), String> {
+        let prompt = self.turn_prompt_full(shop, all_letters);
+        self.execute_turn(shop, &prompt)
+    }
+
+    /// codex 回合(单信版): 兼容旧路径
     pub fn run_turn_blocking(&self, shop: &str, trigger: &Letter) -> Result<(), String> {
+        let prompt = self.turn_prompt(shop, trigger);
+        self.execute_turn(shop, &prompt)
+    }
+
+    /// 底层: spawn codex + 重试
+    fn execute_turn(&self, shop: &str, prompt: &str) -> Result<(), String> {
         let st = self.shops.get(shop).ok_or("unknown shop")?;
         let turns = st.turns_done.fetch_add(1, Ordering::SeqCst) + 1;
         if turns > self.max_turns as u64 {
@@ -195,7 +231,6 @@ impl TideHub {
         }
 
         let sent_before = st.sent_count.load(Ordering::SeqCst);
-        let prompt = self.turn_prompt(shop, trigger);
         let hdir = format!("{}/codex-home-{}", self.log_dir, shop);
         let _ = std::fs::remove_dir_all(&hdir);
         std::fs::create_dir_all(&hdir).map_err(|e| e.to_string())?;
@@ -212,35 +247,23 @@ impl TideHub {
 
         let mut last_err = String::new();
         for _attempt in 0..3u8 {
-            eprintln!("[tide-debug] codex spawn: bin={} home={} provider={}",
-                &self.codex_bin, &hdir, &self.provider_path);
-            let prompt_head: String = prompt.chars().take(60).collect();
-            eprintln!("[tide-debug] prompt ({} chars): {}", prompt.len(), prompt_head);
             let output = std::process::Command::new(&self.codex_bin)
                 .args(["exec", "--skip-git-repo-check", "--ephemeral",
-                       "--dangerously-bypass-approvals-and-sandbox", &prompt])
+                       "--dangerously-bypass-approvals-and-sandbox", prompt])
                 .env("CODEX_HOME", &hdir)
                 .env("PULSING_API_KEY", &api_key)
                 .stdin(std::process::Stdio::null())
-                .stdout(std::process::Stdio::piped())
+                .stdout(std::process::Stdio::null())
                 .stderr(std::process::Stdio::piped())
                 .output();
-
             match output {
                 Ok(out) => {
-                    let so = String::from_utf8_lossy(&out.stdout);
-                    let se = String::from_utf8_lossy(&out.stderr);
-                    eprintln!("[tide-debug] codex exit={} stdout({})={} stderr({})={}",
-                        out.status, so.len(), so.chars().take(100).collect::<String>(),
-                        se.len(), se.chars().take(100).collect::<String>());
-                    if self.capture_stderr && !se.is_empty() {
+                    if self.capture_stderr && !out.stderr.is_empty() {
+                        let se = String::from_utf8_lossy(&out.stderr);
                         self.journal.append_stderr(shop, &se);
                     }
                 }
-                Err(e) => {
-                    last_err = e.to_string();
-                    eprintln!("[tide-debug] codex spawn error: {e}");
-                }
+                Err(e) => last_err = e.to_string(),
             }
 
             let sent = st.sent_count.load(Ordering::SeqCst) != sent_before;

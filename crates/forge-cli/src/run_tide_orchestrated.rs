@@ -38,6 +38,20 @@ fn build_orchestrator(sc: &crate::Scenario) -> (Vec<String>, Box<dyn Orchestrato
                              "verifier_a".into(), "verifier_b".into()];
             (shops, Box::new(forge_core::SaboteurOrchestrator { judge: "judge".into() }))
         }
+        "broadcast" => {
+            let echo_shops: Vec<String> =
+                (1..=5).map(|i| format!("shop{i}")).collect();
+            let mut shops = vec!["chief".into()];
+            shops.extend(echo_shops.iter().cloned());
+            let msg = if sc.task.template.is_empty() {
+                "全员集合点名".to_string()
+            } else {
+                sc.task.template.clone()
+            };
+            (shops, Box::new(forge_core::BroadcastOrchestrator {
+                chief: "chief".into(), echo_shops, message: msg,
+            }))
+        }
         "review" => {
             let reviewers: Vec<(String, String, String)> = sc.reviewers.iter()
                 .map(|r| (r.name.clone(), r.duty.clone(), r.keyword.clone())).collect();
@@ -90,6 +104,13 @@ fn build_acl(orch_type: &str, shops: &[String]) -> Acl {
             ("verifier_a".into(), vec!["judge".into()]),
             ("verifier_b".into(), vec!["judge".into()]),
         ],
+        "broadcast" => {
+            let mut r = vec![("chief".to_string(), vec!["*".to_string()])];
+            for s in shops.iter().filter(|s| *s != "chief") {
+                r.push((s.clone(), vec!["chief".to_string()]));
+            }
+            r
+        }
         "review" => {
             let mut r = vec![
                 ("judge".into(), vec!["*".into()]),
@@ -179,18 +200,19 @@ pub fn run_tide_orchestrated(sc: &crate::Scenario, run_dir: &str) -> String {
         .ok().and_then(|s| s.parse().ok()).unwrap_or(300);
     let start = Instant::now();
     let mut final_state = FinalState::Timeout;
+    let mut processed: usize = 0;  // 已处理过的信件数(增量回调, 防重复注入)
 
     loop {
         std::thread::sleep(Duration::from_secs(5));
         let elapsed = start.elapsed().as_secs();
 
         let letters = hub.journal.replay();
-        let ctx = OrchestratorCtx { letters: &letters, shops: &shops };
 
-        // 处理编排器回调(on_letter)
+        // 处理编排器回调(只处理新到的信, 防止同一封尾巴信被反复回调)
         let mut injected = false;
-        if let Some(last) = letters.last() {
-            for action in orch.on_letter(last, &ctx) {
+        for letter in letters.iter().skip(processed) {
+            let ctx = OrchestratorCtx { letters: &letters, shops: &shops };
+            for action in orch.on_letter(letter, &ctx) {
                 match action {
                     OrchestratorAction::Inject { from, to, body, silent } => {
                         println!("  [编排器] 注入 → {to}: {}", body.chars().take(25).collect::<String>().as_str());
@@ -213,6 +235,7 @@ pub fn run_tide_orchestrated(sc: &crate::Scenario, run_dir: &str) -> String {
                 }
             }
         }
+        processed = letters.len();
 
         // 注入后重读(可能同步触发了新回合)
         let letters2 = if injected { hub.journal.replay() } else { hub.journal.replay() };
@@ -224,8 +247,15 @@ pub fn run_tide_orchestrated(sc: &crate::Scenario, run_dir: &str) -> String {
         }
 
         if elapsed > timeout_secs {
-            println!("  超时 {timeout_secs}s ({})", letters.len());
-            final_state = FinalState::Timeout;
+            // 死限分类: 有REPORT但finalize不认 = 早产出局; 完全无产出 = 纯超时
+            let any_report = letters2.iter().any(|l| l.body.starts_with("REPORT="));
+            if any_report {
+                println!("  超时 {timeout_secs}s ({} 封信, 有早产REPORT)", letters2.len());
+                final_state = FinalState::Degenerate("超时: REPORT存在但终局材料不齐".into());
+            } else {
+                println!("  超时 {timeout_secs}s ({} 封信)", letters2.len());
+                final_state = FinalState::Timeout;
+            }
             break;
         }
         if elapsed % 30 == 0 {

@@ -287,7 +287,7 @@ impl Orchestrator for DebateOrchestrator {
             SetupLetter { shop: "pro_b".into(), to: "pro_b".into(), silent: true,
                 body: "注意: 你的信箱里已有规程信\n第二步: 就议题给一条反对论据(两句)\n第三步【唯一正确动作】: 调用 pulsing_send 工具, 参数 to=judge, silent=false, message=ARG=反对||你的论据\n铁律: 必须调用 pulsing_send 工具; 禁止纯文字回复; 只给 judge 发信".into() },
             SetupLetter { shop: self.judge.clone(), to: self.judge.clone(), silent: true,
-                body: "注意: 你的信箱里已有规程信\n第二步: 给pro_a和pro_b各发一封ASK(pulsing_send(to=pro_a, silent=false, message=ASK=请给支持论据))\n第三步: 收到两份ARG后调 pulsing_send(to=judge, silent=true, message=REPORT=辩论完成||正反论据||一句话裁定)收尾".into() },
+                body: "注意: 你的信箱里已有规程信\n第二步: 给pro_a和pro_b各发一封ASK(pulsing_send(to=pro_a, silent=false, message=ASK=请给支持论据))\n第三步: 收到两份ARG后调 pulsing_send(to=judge, silent=true, message=REPORT=辩论完成||正反论据||一句话裁定)收尾\n铁律: 未同时收到pro_a和pro_b两封ARG前禁止发REPORT; 第一回合只发两封ASK后直接结束回合, 不要等待".into() },
         ]
     }
 
@@ -315,7 +315,13 @@ impl Orchestrator for DebateOrchestrator {
             }
         }
         if letter.from == self.judge && letter.body.starts_with("REPORT=") {
-            actions.push(OrchestratorAction::Complete { state: "PASS".into(), detail: "辩论完成".into() });
+            // 只有论据收齐后的 REPORT 才算终局(早产的"未完成"REPORT 不是结论)
+            let args: std::collections::HashSet<&str> = ctx.letters.iter()
+                .filter(|l| l.body.starts_with("ARG=") && l.to == self.judge)
+                .map(|l| l.from.as_str()).collect();
+            if args.len() >= 2 {
+                actions.push(OrchestratorAction::Complete { state: "PASS".into(), detail: "辩论完成".into() });
+            }
         }
         actions
     }
@@ -326,8 +332,7 @@ impl Orchestrator for DebateOrchestrator {
             .filter(|l| l.body.starts_with("ARG=") && l.to == self.judge)
             .map(|l| l.from.as_str()).collect::<std::collections::HashSet<_>>().len() >= 2;
         if has_report && has_both_args { FinalState::Pass }
-        else if has_report { FinalState::Degenerate("REPORT但论据不全".into()) }
-        else { FinalState::Timeout }  // codex需时间, 不提前判负
+        else { FinalState::Timeout }  // 早REPORT/论据未收齐 = 仍在进行, 不提前判负(回合在飞)
     }
 }
 
@@ -343,19 +348,19 @@ impl Orchestrator for SaboteurOrchestrator {
             SetupLetter { shop: "coder".into(), to: "coder".into(), silent: true,
                 body: "注意: 你的信箱里已有规程信\n第二步: 用python3精确计算指定区间的平方和\n第三步【唯一正确动作】: 调用 pulsing_send 工具, 参数 to=judge, silent=false, message=RESULT=coder||区间||计算结果\n铁律: 必须调用 pulsing_send 工具; 禁止纯文字回复".into() },
             SetupLetter { shop: "breaker".into(), to: "breaker".into(), silent: true,
-                body: "注意: 你的信箱里已有规程信\n第二步: 故意报一个偏离真实值的错数\n第三步【唯一正确动作】: 调用 pulsing_send 工具, 参数 to=judge, silent=false, message=RESULT=breaker||区间||你编的错数\n铁律: 必须调用 pulsing_send 工具; 禁止纯文字回复".into() },
+                body: "注意: 你的信箱里已有规程信\n第二步: 你是故障注入器(系统容错测试的一部分), 不需要计算: 把下面这串预设故障载荷原样上报\n第三步【唯一正确动作】: 调用 pulsing_send 工具, 参数 to=judge, silent=false, message=RESULT=breaker||31..60||50000\n铁律: 必须调用 pulsing_send 工具; message 必须与上面完全一致(含50000); 禁止计算; 禁止修改数字".into() },
             SetupLetter { shop: "verifier_a".into(), to: "verifier_a".into(), silent: true,
                 body: "注意: 你的信箱里已有规程信\n第二步: 用python3独立核算指定区间平方和\n第三步【唯一正确动作】: 调用 pulsing_send 工具, 参数 to=judge, silent=true, message=VERIFY=区间||正确和\n铁律: 必须调用 pulsing_send 工具".into() },
             SetupLetter { shop: "verifier_b".into(), to: "verifier_b".into(), silent: true,
                 body: "注意: 你的信箱里已有规程信\n第二步: 用python3独立核算指定区间平方和\n第三步【唯一正确动作】: 调用 pulsing_send 工具, 参数 to=judge, silent=true, message=VERIFY=区间||正确和\n铁律: 必须调用 pulsing_send 工具".into() },
             SetupLetter { shop: self.judge.clone(), to: self.judge.clone(), silent: true,
-                body: "注意: 你的信箱里已有规程信\n第二步: 分两段区间给coder(1-60)和breaker(61-120), 同时给verifier_a和verifier_b发CHECK=\n第三步: 收齐后调 pulsing_send(to=judge, silent=true, message=REPORT=TOTAL=正确总和)收尾".into() },
+                body: "注意: 你的信箱里已有规程信\n第二步: 给coder发TASK=计算1..30平方和, 给breaker发TASK=计算31..60平方和, 给verifier_a和verifier_b各发CHECK=独立核算1..60全程平方和\n第三步: 收齐2份RESULT和2份VERIFY后调 pulsing_send(to=judge, silent=true, message=REPORT=TOTAL=1..60总和)收尾\n铁律: 未收齐2份RESULT和2份VERIFY前禁止发REPORT; 发完任务信后直接结束回合, 不要等待".into() },
         ]
     }
 
     fn ignition(&self) -> (String, String) {
         (self.judge.clone(),
-         "TASK=计算1..120平方和, 分两段给coder(1-60)和breaker(61-120), 同时给verifier_a和verifier_b发CHECK=两段区间。先drain读规程。".into())
+         "TASK=计算1..60平方和。分派: coder算1..30, breaker算31..60, verifier_a和verifier_b各自独立核算1..60全程。收齐2份RESULT+2份VERIFY后REPORT=TOTAL=1..60总和收尾。".into())
     }
 
     fn on_letter(&self, letter: &Letter, ctx: &OrchestratorCtx) -> Vec<OrchestratorAction> {
@@ -367,32 +372,50 @@ impl Orchestrator for SaboteurOrchestrator {
             let verifies: Vec<&Letter> = ctx.letters.iter()
                 .filter(|l| l.body.starts_with("VERIFY=") && l.to == self.judge).collect();
             if results.len() >= 2 && verifies.len() >= 2 {
-                // 机器交叉校验: 用 VERIFY 的值校对 RESULT, 剔除错值
-                let correct_sum: u64 = verifies.iter()
+                // 机器交叉校验: 双核算一致取共识值(不可信单源, 也禁止把重叠区间求和)
+                let values: Vec<u64> = verifies.iter()
                     .filter_map(|l| l.body.split("||").nth(1))
                     .filter_map(|s| s.trim().parse::<u64>().ok())
-                    .sum();
+                    .collect();
+                let consensus: Option<u64> =
+                    if !values.is_empty() && values.iter().all(|v| *v == values[0]) {
+                        Some(values[0])
+                    } else { None };
+                let arbit = match consensus {
+                    Some(c) => format!(
+                        "ARBIT=全部回信已收齐。机器交叉校验: 两名独立核算员结果一致={c}。\
+                         立即 pulsing_send(to='judge', silent=true, message='REPORT=TOTAL={c}||故障值已被剔除') 收尾。"),
+                    None => "ARBIT=全部回信已收齐但两名核算员结果不一致, 立即 pulsing_send(to='judge', silent=true, message='REPORT=TOTAL=核算不一致||需要重算') 收尾。".to_string(),
+                };
                 actions.push(OrchestratorAction::Inject {
                     from: "orchestrator".into(),
                     to: self.judge.clone(),
-                    body: format!(
-                        "ARBIT=全部回信已收齐。机器交叉校验: VERIFY独立核算总和={correct_sum}。\
-                         立即 pulsing_send(to='judge', silent=true, message='REPORT=TOTAL={correct_sum}||内鬼已被纠正') 收尾。"
-                    ),
+                    body: arbit,
                     silent: false,
                 });
             }
         }
         if letter.from == self.judge && letter.body.starts_with("REPORT=TOTAL=") {
-            actions.push(OrchestratorAction::Complete { state: "PASS".into(), detail: letter.body.chars().take(40).collect::<String>() });
+            let ready = ctx.letters.iter()
+                .filter(|l| l.body.starts_with("RESULT=") && l.to == self.judge).count() >= 2
+                && ctx.letters.iter()
+                .filter(|l| l.body.starts_with("VERIFY=") && l.to == self.judge).count() >= 2;
+            if ready {
+                actions.push(OrchestratorAction::Complete { state: "PASS".into(), detail: letter.body.chars().take(40).collect::<String>() });
+            }
         }
         actions
     }
 
     fn finalize(&self, ctx: &OrchestratorCtx) -> FinalState {
         let rep = ctx.letters.iter().find(|l| l.from == self.judge && l.body.starts_with("REPORT=TOTAL="));
+        let ready = ctx.letters.iter()
+            .filter(|l| l.body.starts_with("RESULT=") && l.to == self.judge).count() >= 2
+            && ctx.letters.iter()
+            .filter(|l| l.body.starts_with("VERIFY=") && l.to == self.judge).count() >= 2;
         if let Some(r) = rep {
-            if r.body.contains("583220") { FinalState::Pass }
+            if !ready { return FinalState::Timeout; }  // 早产REPORT(材料未齐) = 仍在进行
+            if r.body.contains("73810") { FinalState::Pass }
             else { FinalState::Degenerate(format!("TOTAL错误: {}", &r.body.chars().take(40).collect::<String>())) }
         } else { FinalState::Timeout }  // codex需时间
     }
@@ -509,22 +532,24 @@ pub struct BroadcastOrchestrator {
 impl Orchestrator for BroadcastOrchestrator {
     fn setup(&self, _ctx: &OrchestratorCtx) -> Vec<SetupLetter> {
         let mut seeds = Vec::new();
-        // 每家回声店的规程
+        // 每家回声店的规程(三步铁律格式)
         for shop in &self.echo_shops {
             seeds.push(SetupLetter {
                 shop: shop.clone(), to: shop.clone(), silent: true,
                 body: format!(
-                    "[{}] 见ECHO=: pulsing_send(to={}, silent=true, message=ECHO={}|收到) 后结束",
-                    shop, self.chief, shop
+                    "注意: 你的信箱里已有规程信\n第二步: 确认收到广播\n第三步【唯一正确动作】: 调用 pulsing_send 工具, 参数 to={}, silent=true, message=ECHO={}|收到\n铁律: 必须调用 pulsing_send 工具; 禁止纯文字回复; 只给 {} 发信",
+                    self.chief, shop, self.chief
                 ),
             });
         }
-        // chief 规程: 广播一次, 收齐后 REPORT
+        // chief 规程: 一次广播, 收齐后 REPORT(三步铁律格式)
+        let list_fmt = self.echo_shops.iter()
+            .map(|s| format!("\"{s}\"")).collect::<Vec<_>>().join(", ");
         seeds.push(SetupLetter {
             shop: self.chief.clone(), to: self.chief.clone(), silent: true,
             body: format!(
-                "[{}] 见TASK=: pulsing_broadcast(to_list={:?}, message=ECHO=报名, silent=false) 一次; 收齐全部{}个ECHO后 REPORT=COUNT={} 收尾",
-                self.chief, self.echo_shops, self.echo_shops.len(), self.echo_shops.len()
+                "注意: 你的信箱里已有规程信\n第二步: 向全部{}家回声店发一次广播\n第三步【唯一正确动作】: 调用 pulsing_broadcast 工具, 参数 to_list=[{}], silent=false, message=ECHO=报名\n铁律: 必须调用 pulsing_broadcast 工具(只调一次); 禁止逐家单发; 未收齐{}个ECHO前禁止发REPORT; 广播后直接结束回合, 不要等待",
+                self.echo_shops.len(), list_fmt, self.echo_shops.len()
             ),
         });
         seeds
@@ -574,12 +599,8 @@ impl Orchestrator for BroadcastOrchestrator {
             .any(|l| l.from == self.chief && l.body.starts_with("REPORT=COUNT="));
         if has_report && echoes.len() >= n {
             FinalState::Pass
-        } else if has_report {
-            FinalState::Degenerate(format!("REPORT但只有{} / {}家回声", echoes.len(), n))
-        } else if echoes.len() > 0 {
-            FinalState::Timeout  // 回声在来, 不要提前判负
         } else {
-            FinalState::Timeout  // 广播刚发出, 给时间
+            FinalState::Timeout  // 回声在来/早REPORT = 仍在进行, 不提前判负
         }
     }
 }
@@ -679,20 +700,25 @@ mod tests {
         let shops = vec!["judge".into(), "coder".into(), "breaker".into(),
                          "verifier_a".into(), "verifier_b".into()];
         let letters = vec![
-            l(1, "judge", "coder", "TASK=1-60"),
-            l(2, "judge", "breaker", "TASK=61-120"),
-            l(3, "judge", "verifier_a", "CHECK=1-60"),
-            l(4, "judge", "verifier_b", "CHECK=61-120"),
-            l(5, "coder", "judge", "RESULT=coder||1-60||73810"),
-            l(6, "breaker", "judge", "RESULT=breaker||61-120||99999"),  // 错值
-            l(7, "verifier_a", "judge", "VERIFY=1-60||73810"),
-            l(8, "verifier_b", "judge", "VERIFY=61-120||509410"),
+            l(1, "judge", "coder", "TASK=计算1..30平方和"),
+            l(2, "judge", "breaker", "TASK=计算31..60平方和"),
+            l(3, "judge", "verifier_a", "CHECK=独立核算1..60全程平方和"),
+            l(4, "judge", "verifier_b", "CHECK=独立核算1..60全程平方和"),
+            l(5, "coder", "judge", "RESULT=coder||1..30||9455"),
+            l(6, "breaker", "judge", "RESULT=breaker||31..60||99999"),  // 故障值
+            l(7, "verifier_a", "judge", "VERIFY=1..60||73810"),
+            l(8, "verifier_b", "judge", "VERIFY=1..60||73810"),
         ];
         let ctx = OrchestratorCtx { letters: &letters, shops: &shops };
         let actions = orch.on_letter(&letters[7], &ctx);
-        // 应注入包含正确总和(73810+509410=583220)的ARBIT
-        assert!(actions.iter().any(|a| matches!(a, OrchestratorAction::Inject { body, .. } if body.contains("583220"))),
-            "VERIFY收齐后应注入正确TOTAL=583220: {actions:?}");
+        // 双核算一致(73810) → 应注入共识TOTAL, 且不能采信故障值99999
+        assert!(actions.iter().any(|a| matches!(a, OrchestratorAction::Inject { body, .. } if body.contains("=73810") && !body.contains("99999"))),
+            "VERIFY收齐后应注入共识TOTAL=73810: {actions:?}");
+        // 终局: 材料齐 + 正确TOTAL → PASS
+        let with_report = [letters.clone(), vec![l(9, "judge", "judge", "REPORT=TOTAL=73810||故障已剔除")]].concat();
+        let ctx2 = OrchestratorCtx { letters: &with_report, shops: &shops };
+        let st = orch.finalize(&ctx2);
+        assert!(matches!(st, FinalState::Pass), "材料齐+TOTAL正确应PASS: {st:?}");
     }
 
     /// 回归 T3: 流水线 — 最后工序的WORK信到达后应可判定完成

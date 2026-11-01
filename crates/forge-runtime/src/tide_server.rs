@@ -111,18 +111,20 @@ pub async fn shop_scheduler_from(hub: Arc<TideHub>, shop: String, skip_before: u
         let letters = hub.mailboxes.get(&shop)
             .map(|m| m.lock().unwrap().clone())
             .unwrap_or_default();
-        let trigger = letters.iter().rev()
-            .find(|l| !l.body.starts_with("KICK=") && l.ts_ms > last_ts);
-        if let Some(t) = trigger {
-            last_ts = t.ts_ms;
+        let has_new = letters.iter().any(|l| !l.body.starts_with("KICK=") && l.ts_ms > last_ts);
+        if has_new {
+            if let Some(t) = letters.iter().rev().find(|l| !l.body.starts_with("KICK=")) {
+                last_ts = t.ts_ms;
+            }
+            // 清空信箱但保留全部信件用于 turn_prompt(规程信不丢)
+            let all_letters = letters.clone();
             if let Some(mb) = hub.mailboxes.get(&shop) {
                 mb.lock().unwrap().clear();
             }
             let h2 = hub.clone();
-            let trig = t.clone();
             let s2 = shop.clone();
             let _ = tokio::task::spawn_blocking(move || {
-                h2.run_turn_blocking(&s2, &trig)
+                h2.run_turn_full(&s2, &all_letters)
             }).await;
         }
     }

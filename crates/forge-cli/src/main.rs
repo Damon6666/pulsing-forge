@@ -781,18 +781,18 @@ fn run_orchestrated(sc: &Scenario, run_dir: &str) -> String {
         "saboteur" => {
             hub.register("coder", Box::new(|trig, _| {
                 if trig.body.starts_with("TASK=") {
-                    vec![OutLetter { to: "judge".into(), body: "RESULT=coder||1-60||73810".into(), silent: false }]
+                    vec![OutLetter { to: "judge".into(), body: "RESULT=coder||1..30||9455".into(), silent: false }]
                 } else { vec![] }
             }));
             hub.register("breaker", Box::new(|trig, _| {
                 if trig.body.starts_with("TASK=") {
-                    vec![OutLetter { to: "judge".into(), body: "RESULT=breaker||61-120||99999".into(), silent: false }] // 故意错
+                    vec![OutLetter { to: "judge".into(), body: "RESULT=breaker||31..60||99999".into(), silent: false }] // 故意错
                 } else { vec![] }
             }));
             for v in ["verifier_a", "verifier_b"] {
                 hub.register(v, Box::new(|trig, _| {
                     if trig.body.starts_with("CHECK=") {
-                        vec![OutLetter { to: "judge".into(), body: "VERIFY=区间||291610".into(), silent: false }]
+                        vec![OutLetter { to: "judge".into(), body: "VERIFY=1..60||73810".into(), silent: false }]
                     } else { vec![] }
                 }));
             }
@@ -800,13 +800,13 @@ fn run_orchestrated(sc: &Scenario, run_dir: &str) -> String {
             hub.register("judge", Box::new(move |trig, _| {
                 if trig.body.starts_with("TASK=") {
                     vec![
-                        OutLetter { to: "coder".into(), body: "TASK=1-60".into(), silent: false },
-                        OutLetter { to: "breaker".into(), body: "TASK=61-120".into(), silent: false },
-                        OutLetter { to: "verifier_a".into(), body: "CHECK=1-120".into(), silent: false },
-                        OutLetter { to: "verifier_b".into(), body: "CHECK=1-120".into(), silent: false },
+                        OutLetter { to: "coder".into(), body: "TASK=计算1..30平方和".into(), silent: false },
+                        OutLetter { to: "breaker".into(), body: "TASK=计算31..60平方和".into(), silent: false },
+                        OutLetter { to: "verifier_a".into(), body: "CHECK=独立核算1..60全程平方和".into(), silent: false },
+                        OutLetter { to: "verifier_b".into(), body: "CHECK=独立核算1..60全程平方和".into(), silent: false },
                     ]
                 } else if trig.body.starts_with("ARBIT=") {
-                    vec![OutLetter { to: j2.clone(), body: "REPORT=TOTAL=583220||内鬼已被纠正".into(), silent: true }]
+                    vec![OutLetter { to: j2.clone(), body: "REPORT=TOTAL=73810||内鬼已被纠正".into(), silent: true }]
                 } else { vec![] }
             }));
         }
