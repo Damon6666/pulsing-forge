@@ -187,7 +187,7 @@ impl Orchestrator for ReviewOrchestrator {
             if complete {
                 actions.push(OrchestratorAction::Complete {
                     state: "PASS".to_string(),
-                    detail: letter.body[..letter.body.len().min(80)].to_string(),
+                    detail: letter.body.chars().take(80).collect::<String>(),
                 });
             }
         }
@@ -246,7 +246,7 @@ impl Orchestrator for PipelineOrchestrator {
             if rep.body.starts_with("REPORT=") {
                 actions.push(OrchestratorAction::Complete {
                     state: "PASS".to_string(),
-                    detail: rep.body[..rep.body.len().min(60)].to_string(),
+                    detail: rep.body.chars().take(60).collect::<String>(),
                 });
             }
         }
@@ -384,7 +384,7 @@ impl Orchestrator for SaboteurOrchestrator {
             }
         }
         if letter.from == self.judge && letter.body.starts_with("REPORT=TOTAL=") {
-            actions.push(OrchestratorAction::Complete { state: "PASS".into(), detail: letter.body[..40.min(letter.body.len())].to_string() });
+            actions.push(OrchestratorAction::Complete { state: "PASS".into(), detail: letter.body.chars().take(40).collect::<String>() });
         }
         actions
     }
@@ -393,7 +393,7 @@ impl Orchestrator for SaboteurOrchestrator {
         let rep = ctx.letters.iter().find(|l| l.from == self.judge && l.body.starts_with("REPORT=TOTAL="));
         if let Some(r) = rep {
             if r.body.contains("583220") { FinalState::Pass }
-            else { FinalState::Fail(format!("TOTAL错误: {}", &r.body[..40.min(r.body.len())])) }
+            else { FinalState::Fail(format!("TOTAL错误: {}", &r.body.chars().take(40).collect::<String>())) }
         } else { FinalState::Fail("无TOTAL REPORT".into()) }
     }
 }

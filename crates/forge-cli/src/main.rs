@@ -16,8 +16,24 @@ struct Scenario {
     reviewers: Vec<Reviewer>,
     #[serde(default = "default_adapter")]
     adapter: String,
+    /// 编排器类型: review / pipeline / debate / saboteur / hub(默认=旧写审)
+    #[serde(default = "default_orchestrator")]
+    orchestrator: String,
+    /// 流水线阶段(pipeline 编排器用)
+    #[serde(default)]
+    stages: Vec<Stage>,
+    /// 辩论主题(debate 编排器用)
+    #[serde(default)]
+    debate_topic: String,
 }
 fn default_adapter() -> String { "builtin".to_string() }
+fn default_orchestrator() -> String { "legacy".to_string() }
+
+#[derive(Debug, serde::Deserialize)]
+struct Stage {
+    shop: String,
+    duty: String,
+}
 #[derive(Debug, serde::Deserialize)]
 struct Meta {
     name: String,
@@ -360,6 +376,12 @@ keyword = "keyword_d"
         println!("产物: {run_dir}/events-*.jsonl");
         return;
     }
+    // orchestrator 分发: pipeline/debate/saboteur 走编排器路径
+    if sc.orchestrator != "legacy" {
+        println!("{}", run_orchestrated(&sc, &run_dir));
+        println!("产物: {run_dir}/events-*.jsonl");
+        return;
+    }
     println!("{}", run(&sc, &run_dir));
     println!("产物: {run_dir}/events-*.jsonl");
     // 内置大屏: Mermaid 泳道时序图
@@ -609,3 +631,211 @@ fn run_codex(sc: &Scenario, run_dir: &str) -> String {
         sc.meta.name, state, letters.len(), turns, complete, final_script_ok
     )
 }
+
+/// 编排器驱动的场景运行: 替代硬编码 run() 的新路径
+fn run_orchestrated(sc: &Scenario, run_dir: &str) -> String {
+    use forge_core::{Orchestrator, OrchestratorCtx, FinalState, OrchestratorAction};
+
+    let _ = std::fs::remove_dir_all(run_dir);
+    std::fs::create_dir_all(run_dir).expect("创建目录");
+
+    // 根据编排器类型构建店册和编排器实例
+    let (shops, orch): (Vec<String>, Box<dyn Orchestrator>) = match sc.orchestrator.as_str() {
+        "pipeline" => {
+            let stages: Vec<(String, String)> = sc.stages.iter()
+                .map(|s| (s.shop.clone(), s.duty.clone())).collect();
+            let shop_names: Vec<String> = stages.iter().map(|(s, _)| s.clone()).collect();
+            (shop_names, Box::new(forge_core::PipelineOrchestrator { stages }))
+        }
+        "debate" => {
+            let shops = vec!["judge".to_string(), "pro_a".to_string(), "pro_b".to_string()];
+            (shops, Box::new(forge_core::DebateOrchestrator {
+                judge: "judge".to_string(),
+                topic: if sc.debate_topic.is_empty() { "多agent协作利大于弊".to_string() } else { sc.debate_topic.clone() },
+            }))
+        }
+        "saboteur" => {
+            let shops = vec!["judge".to_string(), "coder".to_string(), "breaker".to_string(),
+                             "verifier_a".to_string(), "verifier_b".to_string()];
+            (shops, Box::new(forge_core::SaboteurOrchestrator { judge: "judge".to_string() }))
+        }
+        "review" | "legacy" => {
+            // 默认走旧写审路径(确定性层)
+            return run(sc, run_dir);
+        }
+        other => {
+            eprintln!("未知编排器: {other}, 可选: review/pipeline/debate/saboteur");
+            std::process::exit(2);
+        }
+    };
+
+    // 创建确定性 Hub
+    let acl_rules: Vec<(String, Vec<String>)> = match sc.orchestrator.as_str() {
+        "pipeline" => {
+            let mut rules = Vec::new();
+            for i in 0..shops.len() {
+                let mut allow = vec![shops[i].clone()]; // 自己
+                if i + 1 < shops.len() { allow.push(shops[i+1].clone()); } // 下游
+                rules.push((shops[i].clone(), allow));
+            }
+            rules
+        }
+        "debate" => vec![
+            ("judge".into(), vec!["*".into()]),
+            ("pro_a".into(), vec!["judge".into()]),
+            ("pro_b".into(), vec!["judge".into()]),
+        ],
+        "saboteur" => vec![
+            ("judge".into(), vec!["*".into()]),
+            ("coder".into(), vec!["judge".into()]),
+            ("breaker".into(), vec!["judge".into()]),
+            ("verifier_a".into(), vec!["judge".into()]),
+            ("verifier_b".into(), vec!["judge".into()]),
+        ],
+        _ => vec![],
+    };
+
+    let mut hub = Hub::new(run_dir, shops.clone(), Acl { rules: acl_rules }).expect("Hub");
+
+    // 注册确定性店员(简化版: 按编排器类型行为)
+    match sc.orchestrator.as_str() {
+        "pipeline" => {
+            for (i, shop) in shops.iter().enumerate() {
+                let is_last = i == shops.len() - 1;
+                let next = if !is_last { shops[i+1].clone() } else { shop.clone() };
+                let shop2 = shop.clone();
+                hub.register(shop, Box::new(move |trig, _| {
+                    if trig.body.starts_with("TASK=") || trig.body.starts_with("WORK=") {
+                        let excerpt: String = trig.body.chars().take(40).collect();
+                        if is_last {
+                            vec![OutLetter { to: shop2.clone(), body: format!(
+                                "REPORT=RESULT=流水线完成||{excerpt}"), silent: true }]
+                        } else {
+                            vec![OutLetter { to: next.clone(), body: format!(
+                                "WORK=工序完成||{excerpt}"), silent: false }]
+                        }
+                    } else { vec![] }
+                }));
+            }
+        }
+        "debate" => {
+            for (shop, side) in [("pro_a", "支持"), ("pro_b", "反对")] {
+                let j = "judge".to_string();
+                let s = side.to_string();
+                let shop2 = shop.to_string();
+                hub.register(shop, Box::new(move |trig, _| {
+                    if trig.body.starts_with("ASK=") {
+                        vec![OutLetter { to: j.clone(), body: format!(
+                            "ARG={}||{}论据: 多agent协作{}", s, s, s), silent: false }]
+                    } else { vec![] }
+                }));
+            }
+            // judge: 收到TASK发ASK, 收到ARBIT发REPORT
+            let j2 = "judge".to_string();
+            hub.register("judge", Box::new(move |trig, _| {
+                if trig.body.starts_with("TASK=") {
+                    vec![
+                        OutLetter { to: "pro_a".into(), body: "ASK=请给支持论据".into(), silent: false },
+                        OutLetter { to: "pro_b".into(), body: "ASK=请给反对论据".into(), silent: false },
+                    ]
+                } else if trig.body.starts_with("ARBIT=") {
+                    vec![OutLetter { to: j2.clone(), body: "REPORT=辩论完成||正反论据已收||裁定: 协作有利".into(), silent: true }]
+                } else { vec![] }
+            }));
+        }
+        "saboteur" => {
+            hub.register("coder", Box::new(|trig, _| {
+                if trig.body.starts_with("TASK=") {
+                    vec![OutLetter { to: "judge".into(), body: "RESULT=coder||1-60||73810".into(), silent: false }]
+                } else { vec![] }
+            }));
+            hub.register("breaker", Box::new(|trig, _| {
+                if trig.body.starts_with("TASK=") {
+                    vec![OutLetter { to: "judge".into(), body: "RESULT=breaker||61-120||99999".into(), silent: false }] // 故意错
+                } else { vec![] }
+            }));
+            for v in ["verifier_a", "verifier_b"] {
+                hub.register(v, Box::new(|trig, _| {
+                    if trig.body.starts_with("CHECK=") {
+                        vec![OutLetter { to: "judge".into(), body: "VERIFY=区间||291610".into(), silent: false }]
+                    } else { vec![] }
+                }));
+            }
+            let j2 = "judge".to_string();
+            hub.register("judge", Box::new(move |trig, _| {
+                if trig.body.starts_with("TASK=") {
+                    vec![
+                        OutLetter { to: "coder".into(), body: "TASK=1-60".into(), silent: false },
+                        OutLetter { to: "breaker".into(), body: "TASK=61-120".into(), silent: false },
+                        OutLetter { to: "verifier_a".into(), body: "CHECK=1-120".into(), silent: false },
+                        OutLetter { to: "verifier_b".into(), body: "CHECK=1-120".into(), silent: false },
+                    ]
+                } else if trig.body.starts_with("ARBIT=") {
+                    vec![OutLetter { to: j2.clone(), body: "REPORT=TOTAL=583220||内鬼已被纠正".into(), silent: true }]
+                } else { vec![] }
+            }));
+        }
+        _ => {}
+    }
+
+    // 预置规程信
+    let empty_letters = vec![];
+    let empty_shops = shops.clone();
+    let setup_ctx = OrchestratorCtx { letters: &empty_letters, shops: &empty_shops };
+    for s in orch.setup(&setup_ctx) {
+        let _ = hub.send(&s.shop, &s.to, &s.body, s.silent);
+    }
+
+    // 点火
+    let (ign_to, ign_body) = orch.ignition();
+    hub.ignite(&ign_to, &format!("{ign_body} 任务: {}", sc.task.template)).unwrap();
+
+    // 编排器回调循环: 检查最新信、触发闸门
+    let mut final_state = FinalState::Timeout;
+    for _tick in 0..100 {
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        let letters = hub.letters();
+        let ctx = OrchestratorCtx { letters: &letters, shops: &shops };
+        let mut injected = false;
+        if let Some(last) = letters.last() {
+            let actions = orch.on_letter(last, &ctx);
+            for act in actions {
+                match act {
+                    OrchestratorAction::Inject { from, to, body, silent } => {
+                        let _ = hub.send(&from, &to, &body, silent);
+                        injected = true;  // 注入可能同步触发新回合 → 需重读信件
+                    }
+                    OrchestratorAction::Complete { state, detail } => {
+                        final_state = match state.as_str() {
+                            "PASS" => FinalState::Pass,
+                            _ => FinalState::Degenerate(detail),
+                        };
+                    }
+                    _ => {}
+                }
+            }
+        }
+        // 注入后重读信件(确定性 Hub 同步触发新回合, REPORT 已产生)
+        let letters2 = if injected { hub.letters() } else { letters };
+        let ctx2 = OrchestratorCtx { letters: &letters2, shops: &shops };
+        let state = orch.finalize(&ctx2);
+        if state != FinalState::Timeout {
+            final_state = state;
+            break;
+        }
+    }
+
+    let letters = hub.letters();
+    let turns: u64 = hub.turns.values().sum();
+    let state_str = match &final_state {
+        FinalState::Pass => "PASS".to_string(),
+        FinalState::Degenerate(d) => format!("DEGENERATE({d})"),
+        FinalState::Fail(f) => format!("FAIL({f})"),
+        FinalState::Timeout => "TIMEOUT".to_string(),
+    };
+    format!(
+        "scenario: {} ({})\nstate: {}\nletters: {}\nturns: {}\n",
+        sc.meta.name, sc.orchestrator, state_str, letters.len(), turns
+    )
+}
+
