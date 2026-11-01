@@ -99,21 +99,30 @@ pub async fn serve_control(hub: Arc<TideHub>, port: u16) -> anyhow::Result<()> {
     }
 }
 
-/// 回合调度: 监听店的非静默信到达, 触发 codex 回合
+/// 回合调度: 只触发点火之后的信(跳过 setup 规程信 — 否则模型把规程文本当任务输入)
 pub async fn shop_scheduler(hub: Arc<TideHub>, shop: String) {
+    shop_scheduler_from(hub, shop, 0).await;
+}
+
+pub async fn shop_scheduler_from(hub: Arc<TideHub>, shop: String, skip_before: u64) {
+    let mut last_ts: u64 = skip_before;
     loop {
         tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-        // 检查信箱是否有非静默信(最近 1 秒内到达的)
         let letters = hub.mailboxes.get(&shop)
             .map(|m| m.lock().unwrap().clone())
             .unwrap_or_default();
-        if let Some(trigger) = letters.iter().rev().find(|l| !l.body.starts_with("KICK=")) {
-            // 有待处理的信 → 触发回合(在 blocking 线程跑 codex)
-            let hub2 = hub.clone();
-            let trig = trigger.clone();
-            let shop2 = shop.clone();
+        let trigger = letters.iter().rev()
+            .find(|l| !l.body.starts_with("KICK=") && l.ts_ms > last_ts);
+        if let Some(t) = trigger {
+            last_ts = t.ts_ms;
+            if let Some(mb) = hub.mailboxes.get(&shop) {
+                mb.lock().unwrap().clear();
+            }
+            let h2 = hub.clone();
+            let trig = t.clone();
+            let s2 = shop.clone();
             let _ = tokio::task::spawn_blocking(move || {
-                hub2.run_turn_blocking(&shop2, &trig)
+                h2.run_turn_blocking(&s2, &trig)
             }).await;
         }
     }

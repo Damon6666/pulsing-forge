@@ -136,7 +136,15 @@ pub fn run_tide_orchestrated(sc: &crate::Scenario, run_dir: &str) -> String {
 
     let hub = Arc::new(hub);
 
-    // 3. 启动 TCP 控制口 + 店调度器(后台线程)
+    // 3. 预置规程信(先发, 记录时间戳, 调度器跳过这些)
+    let empty: Vec<forge_core::Letter> = vec![];
+    let setup_ctx = OrchestratorCtx { letters: &empty, shops: &shops };
+    for s in orch.setup(&setup_ctx) {
+        let _ = hub.send(&s.shop, &s.to, &s.body, s.silent, false);
+    }
+    let setup_done_ts = hub.journal.replay().last().map(|l| l.ts_ms).unwrap_or(0);
+
+    // 4. 启动 TCP 控制口 + 店调度器(后台线程)
     let hub2 = hub.clone();
     std::thread::spawn(move || {
         let rt = tokio::runtime::Runtime::new().expect("rt");
@@ -151,21 +159,15 @@ pub fn run_tide_orchestrated(sc: &crate::Scenario, run_dir: &str) -> String {
             for s in shop_list {
                 let h = hub2.clone();
                 let shop = s.clone();
+                let skip = setup_done_ts;
                 tokio::spawn(async move {
-                    forge_runtime::shop_scheduler(h, shop).await;
+                    forge_runtime::shop_scheduler_from(h, shop, skip).await;
                 });
             }
             loop { tokio::time::sleep(Duration::from_secs(3600)).await; }
         });
     });
     std::thread::sleep(Duration::from_millis(1500));
-
-    // 4. 预置规程信(经 TCP 控制口, 触发非静默投递)
-    let empty: Vec<forge_core::Letter> = vec![];
-    let setup_ctx = OrchestratorCtx { letters: &empty, shops: &shops };
-    for s in orch.setup(&setup_ctx) {
-        let _ = hub.send(&s.shop, &s.to, &s.body, s.silent, false);
-    }
 
     // 5. 点火(经 TCP, 非静默 → 触发第一个 codex 回合)
     let (ign_to, ign_body) = orch.ignition();
