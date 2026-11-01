@@ -166,7 +166,7 @@ pub fn run_tide_orchestrated(sc: &crate::Scenario, run_dir: &str) -> String {
 
     // 5. 点火(经 TCP, 非静默 → 触发第一个 codex 回合)
     let (ign_to, ign_body) = orch.ignition();
-    println!("点火 → {ign_to}: {}", &ign_body[..ign_body.len().min(60)]);
+    println!("点火 → {ign_to}: {}", ign_body.chars().take(30).collect::<String>().as_str());
     tide_send(&hub, port, "orchestrator", &ign_to, &ign_body, false);
 
     // 6. 编排器循环: 轮询账本、检测闸门、注入指令(5 秒一查, codex 回合需时间)
@@ -188,7 +188,7 @@ pub fn run_tide_orchestrated(sc: &crate::Scenario, run_dir: &str) -> String {
             for action in orch.on_letter(last, &ctx) {
                 match action {
                     OrchestratorAction::Inject { from, to, body, silent } => {
-                        println!("  [编排器] 注入 → {to}: {}", &body[..body.len().min(50)]);
+                        println!("  [编排器] 注入 → {to}: {}", body.chars().take(25).collect::<String>().as_str());
                         tide_send(&hub, port, &from, &to, &body, silent);
                         injected = true;
                     }

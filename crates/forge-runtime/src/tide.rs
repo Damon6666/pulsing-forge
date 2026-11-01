@@ -212,24 +212,35 @@ impl TideHub {
 
         let mut last_err = String::new();
         for _attempt in 0..3u8 {
+            eprintln!("[tide-debug] codex spawn: bin={} home={} provider={}",
+                &self.codex_bin, &hdir, &self.provider_path);
+            let prompt_head: String = prompt.chars().take(60).collect();
+            eprintln!("[tide-debug] prompt ({} chars): {}", prompt.len(), prompt_head);
             let output = std::process::Command::new(&self.codex_bin)
                 .args(["exec", "--skip-git-repo-check", "--ephemeral",
                        "--dangerously-bypass-approvals-and-sandbox", &prompt])
                 .env("CODEX_HOME", &hdir)
                 .env("PULSING_API_KEY", &api_key)
                 .stdin(std::process::Stdio::null())
-                .stdout(std::process::Stdio::null())
+                .stdout(std::process::Stdio::piped())
                 .stderr(std::process::Stdio::piped())
                 .output();
 
             match output {
                 Ok(out) => {
-                    if self.capture_stderr && !out.stderr.is_empty() {
-                        let se = String::from_utf8_lossy(&out.stderr);
+                    let so = String::from_utf8_lossy(&out.stdout);
+                    let se = String::from_utf8_lossy(&out.stderr);
+                    eprintln!("[tide-debug] codex exit={} stdout({})={} stderr({})={}",
+                        out.status, so.len(), so.chars().take(100).collect::<String>(),
+                        se.len(), se.chars().take(100).collect::<String>());
+                    if self.capture_stderr && !se.is_empty() {
                         self.journal.append_stderr(shop, &se);
                     }
                 }
-                Err(e) => last_err = e.to_string(),
+                Err(e) => {
+                    last_err = e.to_string();
+                    eprintln!("[tide-debug] codex spawn error: {e}");
+                }
             }
 
             let sent = st.sent_count.load(Ordering::SeqCst) != sent_before;
