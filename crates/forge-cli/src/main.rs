@@ -281,11 +281,42 @@ keyword = "keyword_d"
         println!("✅ 已创建 {fname} — 编辑后 forge run {fname}");
         return;
     }
+    if args.len() >= 2 && args[1] == "serve" {
+        // forge serve — 启动潮汐层服务器(控制口+店调度器)
+        let port: u16 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(12400);
+        let log_dir = format!("/tmp/forge-tide-{}", std::process::id());
+        let mut hub = forge_runtime::TideHub::new(&log_dir, port).expect("创建TideHub");
+        // 默认加 judge + writer 店(可用环境变量扩展)
+        hub.add_shop("judge", "glm-5-turbo");
+        hub.add_shop("writer", "glm-5-turbo");
+        hub.codex_bin = std::env::var("FORGE_CODEX_BIN")
+            .unwrap_or_else(|_| "/home/daimeng/bin/codex".to_string());
+        hub.provider_path = std::env::var("FORGE_PROVIDER")
+            .unwrap_or_else(|_| "/tmp/forge-tide/config/provider.toml".to_string());
+        let hub = std::sync::Arc::new(hub);
+        println!("潮汐层服务器: 控制口 :{port} 日志 {log_dir}");
+        println!("环境变量: FORGE_CODEX_BIN={} FORGE_PROVIDER={}",
+            hub.codex_bin, hub.provider_path);
+        let rt = tokio::runtime::Runtime::new().expect("tokio runtime");
+        rt.block_on(async {
+            if let Err(e) = forge_runtime::run_tide(hub).await {
+                eprintln!("潮汐层错误: {e}");
+            }
+        });
+        return;
+    }
+    if args.len() >= 2 && args[1] == "test-tide" {
+        // forge test-tide — 验证 TCP 控制口 + 4 工具管道(不需要 LLM)
+        test_tide();
+        return;
+    }
     if args.len() < 2 || args[1] != "run" || args.len() < 3 {
         eprintln!(
             "用法:
-  forge init [name]     创建场景模板
-  forge run <file.toml>  运行场景"
+  forge init [name]        创建场景模板
+  forge run <file.toml>    运行场景(确定性层)
+  forge serve [port]       启动潮汐层服务器
+  forge test-tide          验证 TCP+MCP 管道"
         );
         std::process::exit(2);
     }
@@ -322,4 +353,79 @@ keyword = "keyword_d"
     }
     dashboard::render_sequence_html(&journal, &sc.meta.name, &format!("{run_dir}/sequence.html"));
     println!("大屏: {run_dir}/sequence.html");
+}
+
+/// 验证 TCP 控制口 + 4 工具管道: 不需要 LLM/codex, 只测 plumbing
+fn test_tide() {
+    use std::io::{BufRead, BufReader, Write};
+    use std::net::TcpStream;
+
+    let port = 12499u16;
+    let log_dir = "/tmp/forge-test-tide";
+    let _ = std::fs::remove_dir_all(log_dir);
+
+    // 1. 创建 TideHub 并在后台线程启动 TCP 服务器
+    let mut hub = forge_runtime::TideHub::new(log_dir, port).expect("TideHub");
+    hub.add_shop("alpha", "test");
+    hub.add_shop("beta", "test");
+    let acl = forge_runtime::Acl::from_pairs(&[
+        ("alpha", &["beta", "alpha"]),
+        ("beta", &["alpha"]),
+    ]);
+    hub.acl = acl;
+    // 不设置 codex_bin → run_turn 会失败, 但 TCP 管道可验证
+    let hub = std::sync::Arc::new(hub);
+
+    let hub2 = hub.clone();
+    std::thread::spawn(move || {
+        let rt = tokio::runtime::Runtime::new().expect("rt");
+        rt.block_on(async {
+            let _ = forge_runtime::serve_control(hub2, port).await;
+        });
+    });
+    std::thread::sleep(std::time::Duration::from_millis(500));
+
+    let mut pass = 0;
+    let mut fail = 0;
+
+    let send_cmd = |json: &str| -> String {
+        let mut s = TcpStream::connect(("127.0.0.1", port)).expect("连接");
+        s.write_all(format!("{json}\n").as_bytes()).expect("写");
+        let mut line = String::new();
+        BufReader::new(s).read_line(&mut line).expect("读");
+        line.trim().to_string()
+    };
+
+    // 2. 测试 pulsing_send (alpha → beta, 静默)
+    let r = send_cmd(r#"{"tool":"pulsing_send","args":{"_shop":"alpha","to":"beta","message":"hello","silent":true}}"#);
+    if r.contains("已送达") { pass += 1; println!("✅ pulsing_send: {r}"); }
+    else { fail += 1; println!("❌ pulsing_send: {r}"); }
+
+    // 3. 测试 pulsing_drain_mail (beta 读信)
+    let r = send_cmd(r#"{"tool":"pulsing_drain_mail","args":{"_shop":"beta"}}"#);
+    if r.contains("hello") { pass += 1; println!("✅ pulsing_drain_mail: 信件已读到"); }
+    else { fail += 1; println!("❌ pulsing_drain_mail: {r}"); }
+
+    // 4. 测试 ACL (alpha 只能发 beta/alpha, 不能发 unknown)
+    let r = send_cmd(r#"{"tool":"pulsing_send","args":{"_shop":"alpha","to":"unknown","message":"x","silent":true,"_from_codex":true}}"#);
+    if r.contains("不在") { pass += 1; println!("✅ ACL 越权拒绝: {r}"); }
+    else { fail += 1; println!("❌ ACL: {r}"); }
+
+    // 5. 测试 pulsing_broadcast (alpha → beta, 白名单收拢)
+    let r = send_cmd(r#"{"tool":"pulsing_broadcast","args":{"_shop":"alpha","to_list":["beta","unknown"],"message":"bc","silent":true,"_from_codex":true}}"#);
+    if r.contains("已群发 1") { pass += 1; println!("✅ pulsing_broadcast 收拢: {r}"); }
+    else { fail += 1; println!("❌ broadcast: {r}"); }
+
+    // 6. 测试 pulsing_health
+    let r = send_cmd(r#"{"tool":"pulsing_health","args":{}}"#);
+    if r.contains("店=2") { pass += 1; println!("✅ pulsing_health: {r}"); }
+    else { fail += 1; println!("❌ health: {r}"); }
+
+    // 7. 验证账本
+    let journal = hub.journal.replay();
+    if journal.len() >= 2 { pass += 1; println!("✅ 账本: {} 封信", journal.len()); }
+    else { fail += 1; println!("❌ 账本: {} 封", journal.len()); }
+
+    println!("--- 管道验证: {pass} PASS / {fail} FAIL ---");
+    if fail > 0 { std::process::exit(1); }
 }
