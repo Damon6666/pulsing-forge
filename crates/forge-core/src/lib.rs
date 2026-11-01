@@ -8,4 +8,4 @@ pub mod auth;
 pub use auth::{authorize, Action, Identity, TokenRing};
 pub mod orchestrator;
 pub use orchestrator::{Orchestrator, OrchestratorCtx, OrchestratorAction, FinalState, SetupLetter,
-    ReviewOrchestrator, PipelineOrchestrator, DebateOrchestrator, SaboteurOrchestrator, RelayChainOrchestrator};
+    ReviewOrchestrator, PipelineOrchestrator, DebateOrchestrator, SaboteurOrchestrator, RelayChainOrchestrator, BroadcastOrchestrator, LetterSchema};

@@ -676,6 +676,15 @@ fn run_orchestrated(sc: &Scenario, run_dir: &str) -> String {
             let input = sc.meta.relay_input.clone();
             (shop_names, Box::new(forge_core::RelayChainOrchestrator::new(stages, &input)))
         }
+        "broadcast" => {
+            let mut shops = vec!["chief".to_string()];
+            shops.extend((1..=10).map(|i| format!("e{}", i)));
+            (shops, Box::new(forge_core::BroadcastOrchestrator {
+                chief: "chief".into(),
+                echo_shops: (1..=10).map(|i| format!("e{}", i)).collect(),
+                message: "报名".into(),
+            }))
+        }
         "review" | "legacy" => {
             // 默认走旧写审路径(确定性层)
             return run(sc, run_dir);
@@ -818,6 +827,32 @@ fn run_orchestrated(sc: &Scenario, run_dir: &str) -> String {
                     } else { vec![] }
                 }));
             }
+        }
+        "broadcast" => {
+            for shop in shops.iter().skip(1) { // skip chief
+                let chief = "chief".to_string();
+                let shop2 = shop.clone();
+                hub.register(shop, Box::new(move |trig, _| {
+                    if trig.body.starts_with("ECHO=") {
+                        vec![OutLetter { to: chief.clone(),
+                            body: format!("ECHO={}|收到", shop2), silent: true }]
+                    } else { vec![] }
+                }));
+            }
+            // chief: 广播 + 收齐后 REPORT
+            let shops2 = shops.clone();
+            hub.register("chief", Box::new(move |trig, _| {
+                if trig.body.starts_with("TASK=") {
+                    // 直接广播到所有回声店
+                    let targets: Vec<String> = shops2.iter().skip(1).cloned().collect();
+                    targets.iter().map(|t| OutLetter {
+                        to: t.clone(), body: "ECHO=报名".to_string(), silent: false
+                    }).collect()
+                } else if trig.body.starts_with("ARBIT=") {
+                    vec![OutLetter { to: "chief".into(),
+                        body: format!("REPORT=COUNT={}|全部回声", shops2.len() - 1), silent: true }]
+                } else { vec![] }
+            }));
         }
         _ => {}
     }

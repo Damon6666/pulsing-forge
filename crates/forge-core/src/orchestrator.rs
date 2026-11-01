@@ -422,13 +422,13 @@ impl RelayChainOrchestrator {
         if is_last {
             let shop = &self.steps[step].0;
             format!(
-                "注意: 你的信箱里已有指令信                 第二步: 对以下文本执行变换「{}」: {}                 第三步【唯一正确动作】: 调用 pulsing_send 工具, 参数 to={}, silent=true, message=REPORT=RELAY_RESULT=你变换后的实际输出结果                 铁律: 只做这一个变换; 禁止纯文字回复; 必须调用 pulsing_send 工具",
+                "TASK=你的信箱里已有指令信                 第二步: 对以下文本执行变换「{}」: {}                 第三步【唯一正确动作】: 调用 pulsing_send 工具, 参数 to={}, silent=true, message=REPORT=RELAY_RESULT=你变换后的实际输出结果                 铁律: 只做这一个变换; 禁止纯文字回复; 必须调用 pulsing_send 工具",
                 transform, input_text, shop
             )
         } else {
             let next = &self.steps[step + 1].0;
             format!(
-                "注意: 你的信箱里已有指令信                 第二步: 对以下文本执行变换「{}」: {}                 第三步【唯一正确动作】: 调用 pulsing_send 工具, 参数 to={}, silent=false, message=RELAY=你变换后的实际输出结果                 铁律: 只做这一个变换; 禁止纯文字回复; 必须调用 pulsing_send 工具; 收件人只能是 {}",
+                "TASK=你的信箱里已有指令信                 第二步: 对以下文本执行变换「{}」: {}                 第三步【唯一正确动作】: 调用 pulsing_send 工具, 参数 to={}, silent=false, message=RELAY=你变换后的实际输出结果                 铁律: 只做这一个变换; 禁止纯文字回复; 必须调用 pulsing_send 工具; 收件人只能是 {}",
                 transform, input_text, next, next
             )
         }
@@ -495,6 +495,149 @@ impl Orchestrator for RelayChainOrchestrator {
             // 没有任何RELAY — 也给首个codex回合时间(LLM需10-60秒), 不立即Fail
             FinalState::Timeout
         }
+    }
+}
+
+/// 规模广播: chief 广播 → N 店回声 → 收齐计数
+/// 解决 T10 并发瓶颈: 编排器识别广播模式, 批量触发 + 回声计数
+pub struct BroadcastOrchestrator {
+    pub chief: String,
+    pub echo_shops: Vec<String>,
+    pub message: String,
+}
+
+impl Orchestrator for BroadcastOrchestrator {
+    fn setup(&self, _ctx: &OrchestratorCtx) -> Vec<SetupLetter> {
+        let mut seeds = Vec::new();
+        // 每家回声店的规程
+        for shop in &self.echo_shops {
+            seeds.push(SetupLetter {
+                shop: shop.clone(), to: shop.clone(), silent: true,
+                body: format!(
+                    "[{}] 见ECHO=: pulsing_send(to={}, silent=true, message=ECHO={}|收到) 后结束",
+                    shop, self.chief, shop
+                ),
+            });
+        }
+        // chief 规程: 广播一次, 收齐后 REPORT
+        seeds.push(SetupLetter {
+            shop: self.chief.clone(), to: self.chief.clone(), silent: true,
+            body: format!(
+                "[{}] 见TASK=: pulsing_broadcast(to_list={:?}, message=ECHO=报名, silent=false) 一次; 收齐全部{}个ECHO后 REPORT=COUNT={} 收尾",
+                self.chief, self.echo_shops, self.echo_shops.len(), self.echo_shops.len()
+            ),
+        });
+        seeds
+    }
+
+    fn ignition(&self) -> (String, String) {
+        (self.chief.clone(),
+         format!("TASK=广播{}家店并收集回声", self.echo_shops.len()))
+    }
+
+    fn on_letter(&self, letter: &Letter, ctx: &OrchestratorCtx) -> Vec<OrchestratorAction> {
+        let mut actions = Vec::new();
+        // ECHO 到达 chief → 检查是否收齐
+        if letter.body.starts_with("ECHO=") && letter.to == self.chief {
+            let echoes: std::collections::HashSet<&str> = ctx.letters.iter()
+                .filter(|l| l.body.starts_with("ECHO=") && l.to == self.chief)
+                .map(|l| l.from.as_str()).collect();
+            let n = self.echo_shops.len();
+            if echoes.len() >= n {
+                actions.push(OrchestratorAction::Inject {
+                    from: "orchestrator".into(),
+                    to: self.chief.clone(),
+                    body: format!(
+                        "ARBIT=全部{}家ECHO已收齐({}/{}) 立即 pulsing_send(to='{}', silent=true, message='REPORT=COUNT={}|全部{}家回声') 收尾",
+                        n, echoes.len(), n, self.chief, n, n
+                    ),
+                    silent: false,
+                });
+            }
+        }
+        // REPORT 到达 → 终局
+        if letter.from == self.chief && letter.body.starts_with("REPORT=COUNT=") {
+            actions.push(OrchestratorAction::Complete {
+                state: "PASS".into(),
+                detail: letter.body.chars().take(40).collect(),
+            });
+        }
+        actions
+    }
+
+    fn finalize(&self, ctx: &OrchestratorCtx) -> FinalState {
+        let echoes: std::collections::HashSet<&str> = ctx.letters.iter()
+            .filter(|l| l.body.starts_with("ECHO=") && l.to == self.chief)
+            .map(|l| l.from.as_str()).collect();
+        let n = self.echo_shops.len();
+        let has_report = ctx.letters.iter()
+            .any(|l| l.from == self.chief && l.body.starts_with("REPORT=COUNT="));
+        if has_report && echoes.len() >= n {
+            FinalState::Pass
+        } else if has_report {
+            FinalState::Degenerate(format!("REPORT但只有{} / {}家回声", echoes.len(), n))
+        } else if echoes.len() > 0 {
+            FinalState::Timeout  // 回声在来, 不要提前判负
+        } else {
+            FinalState::Timeout  // 广播刚发出, 给时间
+        }
+    }
+}
+
+/// 信件 Schema: 发信时校验必需内容(解决 REPORT 缺围栏 / DRAFT 缺代码)
+/// 校验失败返回教学性错误(工具层拒绝, 模型在同一回合内自我纠正)
+pub struct LetterSchema {
+    /// 必需前缀 (如 "REPORT=" / "DRAFT=")
+    pub prefix: String,
+    /// 必需包含的关键词 (如 ["```python", "return"])
+    pub required_contains: Vec<String>,
+    /// 禁止包含 (如 ["undefined"] 防止垃圾输出)
+    pub forbidden_contains: Vec<String>,
+}
+
+impl LetterSchema {
+    pub fn new(prefix: &str, required: &[&str]) -> Self {
+        LetterSchema {
+            prefix: prefix.to_string(),
+            required_contains: required.iter().map(|s| s.to_string()).collect(),
+            forbidden_contains: Vec::new(),
+        }
+    }
+
+    /// 校验信件正文: 通过返回 Ok, 不通过返回教学性错误
+    pub fn validate(&self, body: &str) -> Result<(), String> {
+        if !body.starts_with(&self.prefix) {
+            return Err(format!(
+                "信件必须以 {} 开头; 当前正文前10字符: {}",
+                self.prefix,
+                body.chars().take(10).collect::<String>()
+            ));
+        }
+        for kw in &self.required_contains {
+            if !body.contains(kw.as_str()) {
+                return Err(format!(
+                    "信件缺少必需内容: {}; 请检查后重发(如 REPORT 须包含完整脚本围栏)",
+                    kw
+                ));
+            }
+        }
+        for kw in &self.forbidden_contains {
+            if body.contains(kw.as_str()) {
+                return Err(format!("信件包含禁止内容: {}", kw));
+            }
+        }
+        Ok(())
+    }
+
+    /// 常用 schema 快捷构造
+    pub fn report_with_code() -> Self {
+        Self::new("REPORT=", &["```"])
+    }
+    pub fn draft_code() -> Self {
+        Self::new("DRAFT=", &["```"])
+    }
+    pub fn arbit() -> Self {
+        Self::new("ARBIT=", &[])
     }
 }
 
@@ -617,5 +760,96 @@ mod tests {
         let ctx2 = OrchestratorCtx { letters: &letters, shops: &shops };
         let state = orch.finalize(&ctx2);
         assert_eq!(state, FinalState::Pass);
+    }
+}
+
+#[cfg(test)]
+mod new_tests {
+    use super::*;
+
+    fn l(ts: u64, from: &str, to: &str, body: &str) -> Letter {
+        Letter { ts_ms: ts, from: from.into(), to: to.into(), body: body.into() }
+    }
+
+    /// 回归 T10: 规模广播 — 收齐 N 家回声后自动注入 ARBIT
+    #[test]
+    fn broadcast_collects_echoes() {
+        let orch = BroadcastOrchestrator {
+            chief: "chief".into(),
+            echo_shops: vec!["e1".into(), "e2".into(), "e3".into()],
+            message: "报名".into(),
+        };
+        let shops = vec!["chief".into(), "e1".into(), "e2".into(), "e3".into()];
+        let letters = vec![
+            l(1, "chief", "e1", "ECHO=报名"),
+            l(2, "chief", "e2", "ECHO=报名"),
+            l(3, "chief", "e3", "ECHO=报名"),
+            l(4, "e1", "chief", "ECHO=e1|收到"),
+            l(5, "e2", "chief", "ECHO=e2|收到"),
+            l(6, "e3", "chief", "ECHO=e3|收到"),
+        ];
+        let ctx = OrchestratorCtx { letters: &letters, shops: &shops };
+        // 第6封信(e3的ECHO)到达 → 3/3收齐 → 注入ARBIT
+        let actions = orch.on_letter(&letters[5], &ctx);
+        assert!(actions.iter().any(|a| matches!(a, OrchestratorAction::Inject { body, .. } if body.contains("ARBIT"))),
+            "3/3 ECHO收齐应注入ARBIT: {actions:?}");
+        // REPORT到达 → Complete
+        let with_report = letters.clone();
+        let report = l(7, "chief", "chief", "REPORT=COUNT=3|全部3家回声");
+        let ctx2 = OrchestratorCtx {
+            letters: &[with_report.clone(), vec![report.clone()]].concat(),
+            shops: &shops,
+        };
+        let actions2 = orch.on_letter(&report, &ctx2);
+        assert!(actions2.iter().any(|a| matches!(a, OrchestratorAction::Complete { state, .. } if state == "PASS")));
+    }
+
+    /// 回归 T10: 部分回声 → 不判负(Timeout)
+    #[test]
+    fn broadcast_partial_not_fail() {
+        let orch = BroadcastOrchestrator {
+            chief: "chief".into(),
+            echo_shops: vec!["e1".into(), "e2".into(), "e3".into()],
+            message: "报名".into(),
+        };
+        let shops = vec!["chief".into(), "e1".into(), "e2".into(), "e3".into()];
+        let letters = vec![
+            l(1, "e1", "chief", "ECHO=e1|收到"),
+            l(2, "e2", "chief", "ECHO=e2|收到"),
+            // e3 没回
+        ];
+        let ctx = OrchestratorCtx { letters: &letters, shops: &shops };
+        let state = orch.finalize(&ctx);
+        assert_eq!(state, FinalState::Timeout, "部分回声不应判负");
+    }
+
+    /// 回归 T6/T1-V3: LetterSchema — REPORT 缺围栏被拒
+    #[test]
+    fn schema_rejects_missing_fence() {
+        let schema = LetterSchema::report_with_code();
+        // 有围栏 → 通过
+        assert!(schema.validate("REPORT=全部通过\n```python\ndef f(): pass\n```").is_ok());
+        // 无围栏 → 拒绝(教学性错误)
+        let err = schema.validate("REPORT=全部通过，代码已完成").unwrap_err();
+        assert!(err.contains("缺少必需内容"), "错误信息应说明缺失: {err}");
+    }
+
+    /// LetterSchema — 错误前缀被拒
+    #[test]
+    fn schema_rejects_wrong_prefix() {
+        let schema = LetterSchema::draft_code();
+        // 正确前缀 → 通过
+        assert!(schema.validate("DRAFT=```python\ncode\n```").is_ok());
+        // 错误前缀 → 拒绝
+        let err = schema.validate("这是我写的代码").unwrap_err();
+        assert!(err.contains("必须以"), "错误信息应说明前缀: {err}");
+    }
+
+    /// LetterSchema — 多关键词校验
+    #[test]
+    fn schema_multiple_keywords() {
+        let schema = LetterSchema::new("REVISED=", &["```python", "return"]);
+        assert!(schema.validate("REVISED=```python\ndef f(): return True\n```").is_ok());
+        assert!(schema.validate("REVISED=```python\npass\n```").is_err());
     }
 }
