@@ -214,17 +214,16 @@ pub struct PipelineOrchestrator {
 impl Orchestrator for PipelineOrchestrator {
     fn setup(&self, _ctx: &OrchestratorCtx) -> Vec<SetupLetter> {
         self.stages.iter().enumerate().map(|(i, (shop, duty))| {
-            let next = if i + 1 < self.stages.len() {
-                format!("完成后 pulsing_send(to='{}', silent=false, message='WORK=你的工序产物||下一步: {}')",
-                    self.stages[i+1].0, self.stages[i+1].1)
+            let (next_shop, next_msg, silent_flag) = if i + 1 < self.stages.len() {
+                (self.stages[i+1].0.clone(), "WORK=你的工序产物".to_string(), false)
             } else {
-                format!("完成后 pulsing_send(to='{}', silent=true, message='REPORT=RESULT=最终产物||处理链完成')", shop)
+                (shop.clone(), "REPORT=RESULT=最终产物".to_string(), true)
             };
             SetupLetter {
                 shop: shop.clone(), to: shop.clone(), silent: true,
                 body: format!(
-                    "【{shop}】见WORK=: 执行你的工序「{duty}」。{next}\n铁律: 只给下游或自己发信; REPORT只有最后一步能发。",
-                    shop = shop, duty = duty, next = next
+                    "注意: 你的信箱里已有规程信\n第二步: 执行你的工序「{duty}」\n第三步【唯一正确动作】: 调用 pulsing_send 工具, 参数 to={ns}, silent={sf}, message={nm}\n铁律: 必须调用 pulsing_send 工具; 禁止纯文字回复; 只给 {ns} 发信",
+                    duty = duty, ns = next_shop, sf = silent_flag, nm = next_msg
                 ),
             }
         }).collect()
@@ -284,11 +283,11 @@ impl Orchestrator for DebateOrchestrator {
     fn setup(&self, _ctx: &OrchestratorCtx) -> Vec<SetupLetter> {
         vec![
             SetupLetter { shop: "pro_a".into(), to: "pro_a".into(), silent: true,
-                body: "【正方pro_a】见ASK=: 就议题给一条支持论据(两句), pulsing_send(to='judge', silent=false, message='ARG=支持||论据')后结束。只回judge。".into() },
+                body: "注意: 你的信箱里已有规程信\n第二步: 就议题给一条支持论据(两句)\n第三步【唯一正确动作】: 调用 pulsing_send 工具, 参数 to=judge, silent=false, message=ARG=支持||你的论据\n铁律: 必须调用 pulsing_send 工具; 禁止纯文字回复; 只给 judge 发信".into() },
             SetupLetter { shop: "pro_b".into(), to: "pro_b".into(), silent: true,
-                body: "【反方pro_b】见ASK=: 就议题给一条反对论据(两句), pulsing_send(to='judge', silent=false, message='ARG=反对||论据')后结束。只回judge。".into() },
+                body: "注意: 你的信箱里已有规程信\n第二步: 就议题给一条反对论据(两句)\n第三步【唯一正确动作】: 调用 pulsing_send 工具, 参数 to=judge, silent=false, message=ARG=反对||你的论据\n铁律: 必须调用 pulsing_send 工具; 禁止纯文字回复; 只给 judge 发信".into() },
             SetupLetter { shop: self.judge.clone(), to: self.judge.clone(), silent: true,
-                body: "【裁判judge】见TASK=: 给两位辩手各发ASK=。收齐两份ARG后 REPORT 收尾(含正反论据+一句话裁定)。".into() },
+                body: "注意: 你的信箱里已有规程信\n第二步: 给pro_a和pro_b各发一封ASK(pulsing_send(to=pro_a, silent=false, message=ASK=请给支持论据))\n第三步: 收到两份ARG后调 pulsing_send(to=judge, silent=true, message=REPORT=辩论完成||正反论据||一句话裁定)收尾".into() },
         ]
     }
 
@@ -342,15 +341,15 @@ impl Orchestrator for SaboteurOrchestrator {
     fn setup(&self, _ctx: &OrchestratorCtx) -> Vec<SetupLetter> {
         vec![
             SetupLetter { shop: "coder".into(), to: "coder".into(), silent: true,
-                body: "【coder】见TASK=<a>-<b>: python3算a..b平方和, pulsing_send(to='judge', silent=false, message='RESULT=coder||<a>-<b>||<和>')后结束。只回judge。".into() },
+                body: "注意: 你的信箱里已有规程信\n第二步: 用python3精确计算指定区间的平方和\n第三步【唯一正确动作】: 调用 pulsing_send 工具, 参数 to=judge, silent=false, message=RESULT=coder||区间||计算结果\n铁律: 必须调用 pulsing_send 工具; 禁止纯文字回复".into() },
             SetupLetter { shop: "breaker".into(), to: "breaker".into(), silent: true,
-                body: "【breaker】见TASK=<a>-<b>: 故意报一个偏离的数, pulsing_send(to='judge', silent=false, message='RESULT=breaker||<a>-<b>||<错数>')后结束。只回judge。".into() },
+                body: "注意: 你的信箱里已有规程信\n第二步: 故意报一个偏离真实值的错数\n第三步【唯一正确动作】: 调用 pulsing_send 工具, 参数 to=judge, silent=false, message=RESULT=breaker||区间||你编的错数\n铁律: 必须调用 pulsing_send 工具; 禁止纯文字回复".into() },
             SetupLetter { shop: "verifier_a".into(), to: "verifier_a".into(), silent: true,
-                body: "【verifier_a】见CHECK=: python3独立核算, pulsing_send(to='judge', silent=true, message='VERIFY=<a>-<b>||<正确和>')后结束。".into() },
+                body: "注意: 你的信箱里已有规程信\n第二步: 用python3独立核算指定区间平方和\n第三步【唯一正确动作】: 调用 pulsing_send 工具, 参数 to=judge, silent=true, message=VERIFY=区间||正确和\n铁律: 必须调用 pulsing_send 工具".into() },
             SetupLetter { shop: "verifier_b".into(), to: "verifier_b".into(), silent: true,
-                body: "【verifier_b】见CHECK=: python3独立核算, pulsing_send(to='judge', silent=true, message='VERIFY=<a>-<b>||<正确和>')后结束。".into() },
+                body: "注意: 你的信箱里已有规程信\n第二步: 用python3独立核算指定区间平方和\n第三步【唯一正确动作】: 调用 pulsing_send 工具, 参数 to=judge, silent=true, message=VERIFY=区间||正确和\n铁律: 必须调用 pulsing_send 工具".into() },
             SetupLetter { shop: self.judge.clone(), to: self.judge.clone(), silent: true,
-                body: "【judge】见TASK=: 分两段区间给coder和breaker; 同时给两位verifier发CHECK=。收齐后以VERIFY为准聚合 REPORT=TOTAL=<正确总和>。".into() },
+                body: "注意: 你的信箱里已有规程信\n第二步: 分两段区间给coder(1-60)和breaker(61-120), 同时给verifier_a和verifier_b发CHECK=\n第三步: 收齐后调 pulsing_send(to=judge, silent=true, message=REPORT=TOTAL=正确总和)收尾".into() },
         ]
     }
 
