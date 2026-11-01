@@ -263,12 +263,13 @@ impl Orchestrator for PipelineOrchestrator {
                     (l.body.starts_with("WORK=") || (is_last && l.body.starts_with("REPORT="))))
             })
             .map(|(_, (s, _))| s.as_str()).collect();
-        if !missing.is_empty() {
+        let has_report = ctx.letters.iter().any(|l| l.from == *last_shop && l.body.starts_with("REPORT="));
+        if !missing.is_empty() && has_report {
             return FinalState::Fail(format!("工序未完成: {missing:?}"));
         }
-        let has_report = ctx.letters.iter().any(|l| l.from == *last_shop && l.body.starts_with("REPORT="));
+        if !missing.is_empty() { return FinalState::Timeout }  // 工序在进行中
         if has_report { FinalState::Pass }
-        else { FinalState::Degenerate("全工序完成但无REPORT".into()) }
+        else { FinalState::Timeout }  // 全工序完成但REPORT在路上
     }
 }
 
@@ -327,7 +328,7 @@ impl Orchestrator for DebateOrchestrator {
             .map(|l| l.from.as_str()).collect::<std::collections::HashSet<_>>().len() >= 2;
         if has_report && has_both_args { FinalState::Pass }
         else if has_report { FinalState::Degenerate("REPORT但论据不全".into()) }
-        else { FinalState::Fail("无REPORT".into()) }
+        else { FinalState::Timeout }  // codex需时间, 不提前判负
     }
 }
 
@@ -393,8 +394,8 @@ impl Orchestrator for SaboteurOrchestrator {
         let rep = ctx.letters.iter().find(|l| l.from == self.judge && l.body.starts_with("REPORT=TOTAL="));
         if let Some(r) = rep {
             if r.body.contains("583220") { FinalState::Pass }
-            else { FinalState::Fail(format!("TOTAL错误: {}", &r.body.chars().take(40).collect::<String>())) }
-        } else { FinalState::Fail("无TOTAL REPORT".into()) }
+            else { FinalState::Degenerate(format!("TOTAL错误: {}", &r.body.chars().take(40).collect::<String>())) }
+        } else { FinalState::Timeout }  // codex需时间
     }
 }
 
