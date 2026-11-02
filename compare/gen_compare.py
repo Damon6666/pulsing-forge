@@ -2,9 +2,16 @@
 # 生成 27 个"原题重考"对比场景: 旧批 FAIL 的 spec → Forge TOML
 # 映射原则: 拓扑对拓扑、任务原文对任务原文、旧 checker 语义由 check_forge.py 复刻
 import os
+import json
 
 OUT = os.path.join(os.path.dirname(__file__), "..", "scenarios", "compare")
 os.makedirs(OUT, exist_ok=True)
+
+def q(value):
+    if any(0xd800 <= ord(char) <= 0xdfff for char in value):
+        raise ValueError(f"TOML cannot encode unpaired surrogate: {value!r}")
+    encoded = json.dumps(value, ensure_ascii=True)
+    return encoded.replace("\x7f", "\\u007f")
 
 def w(name, text):
     with open(os.path.join(OUT, name), "w", encoding="utf-8") as f:
@@ -12,32 +19,32 @@ def w(name, text):
     print("wrote", name)
 
 def relay(sid, inp, stages, task="按规程逐跳传递"):
-    body = f'orchestrator = "relay"\nadapter = "codex"\nrelay_input = "{inp}"\n\n'
+    body = f'orchestrator = "relay"\nadapter = "codex"\nrelay_input = {q(inp)}\n\n'
     for shop, duty in stages:
-        body += f'[[stages]]\nshop = "{shop}"\nduty = "{duty}"\n\n'
-    body += f'[meta]\nname = "{sid}"\n\n[task]\ntemplate = "{task}"\nhidden_check = "见 check_forge.py"\nhidden_keyword = "relay"\nn_reviewers = 0\n'
+        body += f'[[stages]]\nshop = {q(shop)}\nduty = {q(duty)}\n\n'
+    body += f'[meta]\nname = {q(sid)}\n\n[task]\ntemplate = {q(task)}\nhidden_check = "见 check_forge.py"\nhidden_keyword = "relay"\nn_reviewers = 0\n'
     w(sid + ".toml", body)
 
 def pipeline(sid, stages, task="按工序接力完成"):
     body = 'orchestrator = "pipeline"\nadapter = "codex"\n\n'
     for shop, duty in stages:
-        body += f'[[stages]]\nshop = "{shop}"\nduty = "{duty}"\n\n'
-    body += f'[meta]\nname = "{sid}"\n\n[task]\ntemplate = "{task}"\nhidden_check = "见 check_forge.py"\nhidden_keyword = "pipeline"\nn_reviewers = 0\n'
+        body += f'[[stages]]\nshop = {q(shop)}\nduty = {q(duty)}\n\n'
+    body += f'[meta]\nname = {q(sid)}\n\n[task]\ntemplate = {q(task)}\nhidden_check = "见 check_forge.py"\nhidden_keyword = "pipeline"\nn_reviewers = 0\n'
     w(sid + ".toml", body)
 
 def review(sid, template, reviewers):
     body = 'orchestrator = "review"\nadapter = "codex"\n\n'
     for name, duty, kw in reviewers:
-        body += f'[[reviewers]]\nname = "{name}"\nduty = "{duty}"\nkeyword = "{kw}"\n\n'
-    body += f'[meta]\nname = "{sid}"\n\n[task]\ntemplate = "{template}"\nhidden_check = "见 check_forge.py"\nhidden_keyword = "review"\nn_reviewers = {len(reviewers)}\n'
+        body += f'[[reviewers]]\nname = {q('review_' + name)}\nduty = {q(duty)}\nkeyword = {q(kw)}\n\n'
+    body += f'[meta]\nname = {q(sid)}\n\n[task]\ntemplate = {q(template)}\nhidden_check = "见 check_forge.py"\nhidden_keyword = "review"\nn_reviewers = {len(reviewers)}\n'
     w(sid + ".toml", body)
 
 def debate(sid, topic):
-    body = f'orchestrator = "debate"\nadapter = "codex"\ndebate_topic = "{topic}"\n\n[meta]\nname = "{sid}"\n\n[task]\ntemplate = "{topic}。裁定必须写明采纳结论"\nhidden_check = "见 check_forge.py"\nhidden_keyword = "debate"\nn_reviewers = 0\n'
+    body = f'orchestrator = "debate"\nadapter = "codex"\ndebate_topic = {q(topic)}\n\n[meta]\nname = {q(sid)}\n\n[task]\ntemplate = {q(topic + "。裁定必须写明采纳结论")}\nhidden_check = "见 check_forge.py"\nhidden_keyword = "debate"\nn_reviewers = 0\n'
     w(sid + ".toml", body)
 
 def broadcast(sid, n, payload):
-    body = f'orchestrator = "broadcast"\nadapter = "codex"\n\n[meta]\nname = "{sid}"\n\n[task]\ntemplate = "{payload}"\nhidden_check = "回声{n}/{n}+REPORT"\nhidden_keyword = "broadcast"\nn_reviewers = {n}\n'
+    body = f'orchestrator = "broadcast"\nadapter = "codex"\n\n[meta]\nname = {q(sid)}\n\n[task]\ntemplate = {q(payload)}\nhidden_check = "回声{n}/{n}+REPORT"\nhidden_keyword = "broadcast"\nn_reviewers = {n}\n'
     w(sid + ".toml", body)
 
 # ── T1 中继链(5店 n1..n5) ──

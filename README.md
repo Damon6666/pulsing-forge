@@ -61,6 +61,8 @@ Scenarios are **data, not code** — see `scenarios/` and `docs/scenario-schema.
 
 The two tiers run the *same* orchestrator: the deterministic tier proves the protocol on CI with zero API cost; the live tier swaps simulated shops for real codex turns — the mailbox scheduler, ACL, journal, and gates carry over unchanged. For reference, the pre-refactor legacy runner closed its 50-round campaign at 73% (905/1239 sub-scenarios); the Forge line runs 100% on both tiers.
 
+**Same-question re-examination (24/27).** The 27 non-PASS scenarios from the legacy 100-matrix were re-run verbatim on Forge (topology-for-topology, task-for-task, legacy checker semantics ported; two legacy-suite scoring bugs corrected). Result: **legacy 0/27 → Forge 24/27 PASS**, including the old stack's wipeout topologies — 30-shop scale broadcast now collects 30/30 echoes and closes on all 7 variants (the old best was 22/30 with 0/7 passes), and the fault-injection family passes on independent-verification consensus. The 3 remaining failures share one root: the closure template's placeholder text gets echoed verbatim instead of the artifact — see `compare/` for the kit and journals. Each fix on the way was architectural, not per-scenario: gate idempotence, scheduler debounce (fan-in storm), machine-dispatched review waves, ACK-ban prompt fallback, send accounting (taxonomy #16).
+
 Substrate hardened by a 50-round stress campaign (order-correctness 93%+, zero letter loss). See [`docs/failure-taxonomy.md`](docs/failure-taxonomy.md) — 15 failure modes, each with its structural fix.
 
 ## License

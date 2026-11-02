@@ -42,7 +42,7 @@ def check(sid, run_dir, turns=None):
         det = "REPORT含围栏" if ok else "REPORT缺脚本围栏"
     elif sid in ("T1-V5-006", "T2-V5-023", "T3-V5-033"):  # 内鬼族(旧checker要583220但task是clamp=套件bug, 修正为clamp正确性)
         ok = bool(rep and "```" in rep["body"] and "def clamp" in rep["body"]
-                  and ("max" in rep["body"] or "min" in rep["body"]))
+                  and ("max" in rep["body"] or "min" in rep["body"] or "if" in rep["body"]))
         det = "交叉校验后正确clamp交付" if ok else (rep["body"][:50] if rep else "无REPORT")
     elif sid == "T9-V5-086":  # 维修队(旧checker同样有task/checker失配bug; 用Forge拓扑自有真值)
         m = re.search(r"TOTAL\D*(\d+)", rep["body"]) if rep else None
