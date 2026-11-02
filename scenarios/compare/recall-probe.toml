@@ -1,0 +1,23 @@
+# recall 探针: 写手必须交 >500 字符的长稿, 法官收尾需要全文 → 应触发 pulsing_recall
+# 验收: journal 中出现 ev=tool_call 且 detail 含 pulsing_recall ≥1 次
+orchestrator = "review"
+adapter = "codex"
+
+[[reviewers]]
+name = "review_logic"
+duty = "clamp逻辑正确性(max/min实现与docstring声明一致)"
+keyword = "clamp"
+
+[[reviewers]]
+name = "review_doc"
+duty = "文档与测试完整性(docstring、边界说明、单元测试是否齐)"
+keyword = "docstring"
+
+[meta]
+name = "recall-probe"
+
+[task]
+template = "写一个python函数clamp(i,lo,hi), 要求: 完整docstring(参数/返回/异常说明), 类型注解, 行内边界注释, 以及至少4个单元测试(用assert), DRAFT正文必须超过500字符"
+hidden_check = "journal含pulsing_recall调用"
+hidden_keyword = "recall"
+n_reviewers = 2

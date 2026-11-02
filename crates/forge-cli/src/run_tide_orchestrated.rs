@@ -175,7 +175,10 @@ pub fn run_tide_orchestrated(sc: &crate::Scenario, run_dir: &str) -> String {
             let h = hub2.clone();
             tokio::spawn(async move {
                 if let Err(e) = forge_runtime::serve_control(h, port).await {
-                    eprintln!("控制口: {e}");
+                    // 端口劫持防护: 绑不上口说明有僵尸forge占着(被杀批次的残尸),
+                    // 此时 attach 会把信写进僵尸的账本 — 必须大声退出而非静默降级
+                    eprintln!("控制口绑定失败(疑似僵尸forge占用{port}): {e}");
+                    std::process::exit(3);
                 }
             });
             let shop_list: Vec<String> = hub2.shops.keys().cloned().collect();
@@ -203,6 +206,8 @@ pub fn run_tide_orchestrated(sc: &crate::Scenario, run_dir: &str) -> String {
     let start = Instant::now();
     let mut final_state = FinalState::Timeout;
     let mut processed: usize = 0;  // 已处理过的信件数(增量回调, 防重复注入)
+    // 机器强制闭合的宽限计时: 终局店 → 首次发现"闸门满足但未收尾"的时刻
+    let mut closure_wait: std::collections::HashMap<String, Instant> = std::collections::HashMap::new();
     // 进度看门狗(Super-agent 吸收): 外部 Control Loop, 从账本识别无进展模式并诊断踢
     let wd_cfg = forge_core::WatchdogConfig::default();
     let mut wd_fired: std::collections::HashMap<(String, String), std::time::Instant> =
@@ -269,6 +274,18 @@ pub fn run_tide_orchestrated(sc: &crate::Scenario, run_dir: &str) -> String {
         // 注入后重读(可能同步触发了新回合)
         let letters2 = if injected { hub.journal.replay() } else { hub.journal.replay() };
         let ctx2 = OrchestratorCtx { letters: &letters2, shops: &shops };
+
+        // 机器强制闭合(保底): 闸门已满足但终局店迟迟不收尾(实测法官抽风开小会),
+        // 宽限60秒后代笔落账 — 机器管协议的收尾端
+        if let Some((to, body)) = orch.forced_closure(&ctx2) {
+            let first_seen = closure_wait.entry(to.clone()).or_insert_with(Instant::now);
+            if first_seen.elapsed() >= Duration::from_secs(60) {
+                println!("  [机器闭合] {to} 60s未收尾, 代笔 REPORT");
+                let _ = hub.send(&to, &to, &body, true, false);
+                closure_wait.remove(&to);
+            }
+        }
+
         let state = orch.finalize(&ctx2);
         if state != FinalState::Timeout {
             final_state = state;

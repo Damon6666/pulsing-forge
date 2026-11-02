@@ -70,6 +70,12 @@ pub trait Orchestrator: Send + Sync {
 
     /// 终局判定
     fn finalize(&self, ctx: &OrchestratorCtx) -> FinalState;
+
+    /// 机器强制闭合(保底): 闸门条件已满足但模型迟迟不收尾时, 返回应由终局店发出的收尾信。
+    /// 主循环在闸门满足后宽限 N 秒, 仍无 REPORT 则以该店名义代笔落账(机器管协议的收尾端)。
+    fn forced_closure(&self, _ctx: &OrchestratorCtx) -> Option<(String, String)> {
+        None // 默认无保底(编排器自行决定是否提供)
+    }
 }
 
 /// 预置信
@@ -188,8 +194,18 @@ impl Orchestrator for ReviewOrchestrator {
                         format!("{name}: {verdict} ({duty})")
                     }).collect();
                 let nfix = table.iter().filter(|t| t.contains("NEEDS_FIX")).count();
+                // 占位词回声修复: 收尾指令直接嵌入最新稿全文, 模型照抄也抄到的是真产物
+                let latest_draft: String = ctx.letters.iter().rev()
+                    .find(|l| l.from == self.writer && l.to == self.judge
+                        && (l.body.starts_with("DRAFT=") || l.body.starts_with("REVISED=")))
+                    .map(|l| l.body.chars().take(1200).collect())
+                    .unwrap_or_default();
                 let action = if nfix == 0 {
-                    "pulsing_send(to='judge', silent=true, message='REPORT=全部审查通过||最终脚本||三句汇报') 收尾。".to_string()
+                    format!(
+                        "pulsing_send(to='judge', silent=true, message='REPORT=全部审查通过||最终稿如下||{}||一句话总结') 收尾。\
+                         (最终稿必须原样附上, 禁止用\"最终脚本\"之类的占位词代替)",
+                        latest_draft
+                    )
                 } else {
                     format!(
                         "把全部NEEDS_FIX意见汇总成一封 pulsing_send(to='{}', silent=false, message='REJECT=意见汇总||缺失检查必须补齐||写手动作:补齐后重交REVISED=```python全文```')",
@@ -231,6 +247,33 @@ impl Orchestrator for ReviewOrchestrator {
         let has_report = ctx.letters.iter().any(|l| l.from == self.judge && l.body.starts_with("REPORT="));
         if complete && has_report { FinalState::Pass }
         else { FinalState::Timeout }  // 回合在飞/回路未闭 = 仍在进行, 不提前判负(死限由主循环分类)
+    }
+
+    fn forced_closure(&self, ctx: &OrchestratorCtx) -> Option<(String, String)> {
+        // 保底: 最新稿的审查波次全部回齐且全CLEAN, 法官却迟迟不收尾 → 代笔(附最新稿全文)
+        let latest_draft_ts = ctx.letters.iter()
+            .filter(|l| l.from == self.writer && (l.body.starts_with("DRAFT=") || l.body.starts_with("REVISED=")))
+            .map(|l| l.ts_ms).max().unwrap_or(0);
+        let wave = ctx.letters.iter()
+            .filter(|l| l.body.starts_with("REVIEW=") && l.ts_ms > latest_draft_ts)
+            .map(|l| l.ts_ms).min().unwrap_or(latest_draft_ts);
+        let replied: std::collections::HashSet<&str> = ctx.letters.iter()
+            .filter(|l| l.from.starts_with(&self.reviewer_prefix) && l.to == self.judge
+                     && l.ts_ms >= wave && !l.body.starts_with("KICK="))
+            .map(|l| l.from.as_str()).collect();
+        let all_clean = ctx.letters.iter()
+            .filter(|l| l.from.starts_with(&self.reviewer_prefix) && l.to == self.judge && l.ts_ms >= wave)
+            .all(|l| l.body.starts_with("CLEAN"));
+        let has_report = ctx.letters.iter().any(|l| l.from == self.judge && l.body.starts_with("REPORT="));
+        if replied.len() >= self.reviewers.len() && all_clean && !has_report {
+            let draft: String = ctx.letters.iter().rev()
+                .find(|l| l.from == self.writer && l.to == self.judge
+                    && (l.body.starts_with("DRAFT=") || l.body.starts_with("REVISED=")))
+                .map(|l| l.body.chars().take(1200).collect())
+                .unwrap_or_default();
+            Some((self.judge.clone(),
+                format!("REPORT=全部审查通过||最终稿如下||{draft}||机器闭合: 法官超时未收尾, 裁决表全CLEAN")))
+        } else { None }
     }
 }
 
@@ -367,6 +410,22 @@ impl Orchestrator for DebateOrchestrator {
         if has_report && has_both_args { FinalState::Pass }
         else { FinalState::Timeout }  // 早REPORT/论据未收齐 = 仍在进行, 不提前判负(回合在飞)
     }
+
+    fn forced_closure(&self, ctx: &OrchestratorCtx) -> Option<(String, String)> {
+        let args: Vec<&Letter> = ctx.letters.iter()
+            .filter(|l| l.body.starts_with("ARG=") && l.to == self.judge).collect();
+        let distinct = args.iter().map(|l| l.from.as_str())
+            .collect::<std::collections::HashSet<_>>().len();
+        let has_report = ctx.letters.iter().any(|l| l.from == self.judge && l.body.starts_with("REPORT="));
+        if distinct >= 2 && !has_report {
+            let body = format!(
+                "REPORT=辩论完成||{}||{}||机器闭合: 法官超时未收尾, 双方论据已齐, 裁定交由账本回放",
+                args.first().map(|l| l.body.chars().take(200).collect::<String>()).unwrap_or_default(),
+                args.get(1).map(|l| l.body.chars().take(200).collect::<String>()).unwrap_or_default(),
+            );
+            Some((self.judge.clone(), body))
+        } else { None }
+    }
 }
 
 /// 维修队(内鬼): coder+breaker 提交, verifier 独立核算, 机器多数表决
@@ -456,6 +515,24 @@ impl Orchestrator for SaboteurOrchestrator {
             if r.body.contains("73810") { FinalState::Pass }
             else { FinalState::Degenerate(format!("TOTAL错误: {}", &r.body.chars().take(40).collect::<String>())) }
         } else { FinalState::Timeout }  // codex需时间
+    }
+
+    fn forced_closure(&self, ctx: &OrchestratorCtx) -> Option<(String, String)> {
+        let results = ctx.letters.iter()
+            .filter(|l| l.body.starts_with("RESULT=") && l.to == self.judge).count();
+        let verifies: Vec<&Letter> = ctx.letters.iter()
+            .filter(|l| l.body.starts_with("VERIFY=") && l.to == self.judge).collect();
+        let has_report = ctx.letters.iter().any(|l| l.from == self.judge && l.body.starts_with("REPORT=TOTAL="));
+        if results >= 2 && verifies.len() >= 2 && !has_report {
+            let values: Vec<u64> = verifies.iter()
+                .filter_map(|l| l.body.split("||").nth(1))
+                .filter_map(|s| s.trim().parse::<u64>().ok()).collect();
+            if !values.is_empty() && values.iter().all(|v| *v == values[0]) {
+                return Some((self.judge.clone(),
+                    format!("REPORT=TOTAL={}||故障值已被剔除||机器闭合: 法官超时未收尾, 共识值已由双核算证实", values[0])));
+            }
+        }
+        None
     }
 }
 
@@ -649,6 +726,19 @@ impl Orchestrator for BroadcastOrchestrator {
         } else {
             FinalState::Timeout  // 回声在来/早REPORT = 仍在进行, 不提前判负
         }
+    }
+
+    fn forced_closure(&self, ctx: &OrchestratorCtx) -> Option<(String, String)> {
+        let echoes: std::collections::HashSet<&str> = ctx.letters.iter()
+            .filter(|l| l.body.starts_with("ECHO=") && l.to == self.chief)
+            .map(|l| l.from.as_str()).collect();
+        let n = self.echo_shops.len();
+        let has_report = ctx.letters.iter()
+            .any(|l| l.from == self.chief && l.body.starts_with("REPORT=COUNT="));
+        if echoes.len() >= n && !has_report {
+            Some((self.chief.clone(),
+                format!("REPORT=COUNT={}|全部{n}家回声||机器闭合: chief超时未收尾, 回声计数来自账本", n)))
+        } else { None }
     }
 }
 

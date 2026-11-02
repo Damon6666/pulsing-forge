@@ -109,6 +109,19 @@ impl Journal {
             .open(&path)
             .and_then(|mut f| writeln!(f, "{line}"));
     }
+    /// 工具调用落账(可观测性: recall 等无信件副作用的调用也留痕)
+    pub fn append_tool(&self, shop: &str, detail: &str) {
+        let path = self.dir.join(format!("events-{shop}.jsonl"));
+        let line = serde_json::json!({
+            "ev": "tool_call", "shop": shop,
+            "detail": detail.chars().take(300).collect::<String>(),
+        });
+        let _ = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&path)
+            .and_then(|mut f| writeln!(f, "{line}"));
+    }
     pub fn replay(&self) -> Vec<Letter> {
         let mut out = Vec::new();
         if let Ok(rd) = std::fs::read_dir(&self.dir) {

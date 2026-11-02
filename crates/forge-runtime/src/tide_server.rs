@@ -69,6 +69,8 @@ pub fn handle_line(hub: &TideHub, line: &str) -> String {
         "pulsing_recall" => {
             // 链式召回(Super-agent 吸收): 按信件序号从账本取全文 — 账本即登记处
             let id = args["letter_id"].as_u64().unwrap_or(0);
+            let caller = args["_shop"].as_str().unwrap_or("unknown");
+            hub.journal.append_tool(caller, &format!("pulsing_recall letter_id={id}"));
             match hub.journal.replay().into_iter().find(|l| l.seq == id) {
                 Some(l) => serde_json::to_string(&ToolReply::ok(&format!(
                     "[信#{seq}] 来自 {from} → {to}: {body}", seq = l.seq, from = l.from, to = l.to, body = l.body
