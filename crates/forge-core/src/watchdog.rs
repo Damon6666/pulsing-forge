@@ -45,12 +45,18 @@ pub fn inspect(letters: &[Letter], cfg: &WatchdogConfig) -> Vec<WatchdogAlert> {
         &letters[letters.len() - cfg.window..]
     } else { letters };
 
+    // 只盯模型行为: 机器流量(编排器/看门狗自身/KICK信)豁免 —
+    // 首版上线实锤: 把机器群审分发误判为循环, 又把自己的踢信当循环自踢12次
+    let is_machine = |l: &Letter| {
+        l.from == "orchestrator" || l.from == "watchdog" || l.body.starts_with("KICK=")
+    };
+
     // 1) 同构循环: 按 (from, to, 正文指纹) 计数
     use std::collections::HashMap;
     let mut fp_count: HashMap<(String, String, String), usize> = HashMap::new();
     let mut fp_sample: HashMap<(String, String, String), String> = HashMap::new();
     for l in tail {
-        if l.from == l.to { continue; }  // 自回声已由工具层熔断
+        if l.from == l.to || is_machine(l) { continue; }  // 自回声已由工具层熔断
         let fp: String = l.body.chars().take(cfg.fingerprint_chars).collect();
         let key = (l.from.clone(), l.to.clone(), fp);
         *fp_count.entry(key.clone()).or_insert(0) += 1;
@@ -71,7 +77,7 @@ pub fn inspect(letters: &[Letter], cfg: &WatchdogConfig) -> Vec<WatchdogAlert> {
     // 2) 杂信风暴: 单店非协议前缀信件计数
     let mut chatter: HashMap<String, (usize, String)> = HashMap::new();
     for l in tail {
-        if l.from == l.to { continue; }
+        if l.from == l.to || is_machine(l) { continue; }
         if PROTOCOL_PREFIXES.iter().any(|p| l.body.starts_with(p)) { continue; }
         let e = chatter.entry(l.from.clone()).or_insert((0, String::new()));
         e.0 += 1;
@@ -135,6 +141,24 @@ mod tests {
             l(5, "review_r1", "judge", "CLEAN=r1||ok"),
         ];
         assert!(inspect(&ls, &WatchdogConfig::default()).is_empty());
+    }
+
+    #[test]
+    fn machine_traffic_never_alerts() {
+        // 上线实锤回归: 机器群审分发(3波×3审查店, 指纹相近) + 看门狗自己的踢信
+        // 首版把它们误判为循环并自踢 — 机器流量必须全程豁免
+        let mut ls = vec![l(1, "orchestrator", "judge", "TASK=开始")];
+        for wave in 0..3 {
+            for r in ["review_r1", "review_r2", "review_r3"] {
+                ls.push(l(10 + wave * 3 + r.len() as u64, "orchestrator", r,
+                    "REVIEW=群审||你只查||底稿如下||DRAFT=clamp全文"));
+            }
+        }
+        for i in 0..5 {
+            ls.push(l(100 + i, "watchdog", "writer", "KICK=看门狗: 检测到同构信件循环"));
+        }
+        assert!(inspect(&ls, &WatchdogConfig::default()).is_empty(),
+            "机器分发与踢信不得触发告警");
     }
 
     #[test]
