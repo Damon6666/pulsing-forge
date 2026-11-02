@@ -95,17 +95,16 @@ pub struct ReviewOrchestrator {
 impl Orchestrator for ReviewOrchestrator {
     fn setup(&self, _ctx: &OrchestratorCtx) -> Vec<SetupLetter> {
         let mut seeds = Vec::new();
-        let rv_names: Vec<String> = self.reviewers.iter().map(|r| r.0.clone()).collect();
         seeds.push(SetupLetter {
             shop: self.judge.clone(), to: self.judge.clone(), silent: true,
             body: format!(
                 "注意: 你的信箱里已有规程信\n\
                  第二步: 把任务原文转发给写手(附写手动作: 写脚本放```python围栏, 回 pulsing_send(to=\"{judge}\",silent=false,message=\"DRAFT=```python全文```\"))\n\
                  第三步【唯一正确动作】: 调用 pulsing_send 工具, 参数 to={writer}, silent=false, message=TASK=任务原文||写手动作:写脚本放```python围栏后交DRAFT\n\
-                 后续: 见DRAFT=→调用 pulsing_broadcast(to_list={rv_names:?}, message=REVIEW=群审||各查一事||底稿如下||脚本原文)\n\
-                 见ARBIT=→按机器裁决表执行唯一动作: 全CLEAN则REPORT收尾, 有NEEDS_FIX则一封REJECT打回写手\n\
-                 铁律: 必须调用 pulsing_send/pulsing_broadcast 工具; 禁止纯文字回复; 不自己写代码; 未收齐全部审查回信前禁止REPORT",
-                judge = self.judge, writer = self.writer, rv_names = rv_names
+                 后续: 写手交稿后群审由机器自动分发, 你不要自己审查、不要给写手发任何评判信\n\
+                 见ARBIT=→按机器裁决表执行唯一动作: 全CLEAN则 REPORT=最终脚本(带```python围栏) 收尾, 有NEEDS_FIX则一封REJECT=意见汇总 打回写手\n\
+                 铁律: 必须调用 pulsing_send 工具; 禁止纯文字回复; 不自己审代码; 不给写手发评判信; 未收ARBIT前只做转发派单",
+                judge = self.judge, writer = self.writer
             ),
         });
         seeds.push(SetupLetter {
@@ -140,13 +139,39 @@ impl Orchestrator for ReviewOrchestrator {
 
     fn on_letter(&self, letter: &Letter, ctx: &OrchestratorCtx) -> Vec<OrchestratorAction> {
         let mut actions = Vec::new();
+        // 写手交稿到达 → 机器代发群审(模型屡次不执行"见DRAFT→广播"的条件动作, 元原则#3: 机器管协议)
+        if letter.from == self.writer && letter.to == self.judge
+            && (letter.body.starts_with("DRAFT=") || letter.body.starts_with("REVISED=")) {
+            let draft_tail: String = letter.body.chars().take(600).collect();
+            // 幂等: 这份稿子之后已代发过群审就不再发
+            let dispatched = ctx.letters.iter()
+                .any(|l| l.from == "orchestrator" && l.body.starts_with("REVIEW=")
+                    && l.ts_ms >= letter.ts_ms);
+            if !dispatched {
+                for (name, duty, _) in &self.reviewers {
+                    actions.push(OrchestratorAction::Inject {
+                        from: "orchestrator".to_string(),
+                        to: name.clone(),
+                        body: format!(
+                            "REVIEW=群审||你只查「{duty}」一事||底稿如下||{draft_tail}\n\
+                             唯一正确动作: 调用 pulsing_send(to='{}', silent=true, message='CLEAN={}||{duty}: 已覆盖' 或 'NEEDS_FIX={}||{duty}: 缺失')",
+                            self.judge, name, name
+                        ),
+                        silent: false,
+                    });
+                }
+            }
+        }
         // 审查店回信到达 → 检查是否收齐
         if letter.from.starts_with(&self.reviewer_prefix) && letter.to == self.judge {
             let n = self.reviewers.len();
             let latest_draft_ts = ctx.letters.iter()
                 .filter(|l| l.from == self.writer && (l.body.starts_with("DRAFT=") || l.body.starts_with("REVISED=")))
                 .map(|l| l.ts_ms).max().unwrap_or(0);
-            let wave = ctx.wave_ts(&self.judge, "REVIEW=", latest_draft_ts);
+            // 群审已由机器代发(发送者是orchestrator), 波次=该稿之后最早的一封REVIEW信时刻
+            let wave = ctx.letters.iter()
+                .filter(|l| l.body.starts_with("REVIEW=") && l.ts_ms > latest_draft_ts)
+                .map(|l| l.ts_ms).min().unwrap_or(latest_draft_ts);
             let replied: std::collections::HashSet<&str> = ctx.letters.iter()
                 .filter(|l| l.from.starts_with(&self.reviewer_prefix) && l.to == self.judge
                          && l.ts_ms >= wave && !l.body.starts_with("KICK="))
@@ -689,7 +714,7 @@ mod tests {
     use super::*;
 
     fn l(ts: u64, from: &str, to: &str, body: &str) -> Letter {
-        Letter { ts_ms: ts, from: from.into(), to: to.into(), body: body.into() }
+        Letter { ts_ms: ts, seq: 0, from: from.into(), to: to.into(), body: body.into() }
     }
 
     /// 回归 T7: 辩论 — 收齐2份ARG后必须自动注入ARBIT(解"不知何时结束")
@@ -816,7 +841,64 @@ mod new_tests {
     use super::*;
 
     fn l(ts: u64, from: &str, to: &str, body: &str) -> Letter {
-        Letter { ts_ms: ts, from: from.into(), to: to.into(), body: body.into() }
+        Letter { ts_ms: ts, seq: 0, from: from.into(), to: to.into(), body: body.into() }
+    }
+
+    /// 回归: 空审查组不能在写手交稿后立即收齐并注入裁决
+    #[test]
+    fn review_with_no_reviewers_times_out() {
+        let orch = ReviewOrchestrator {
+            judge: "judge".into(),
+            writer: "writer".into(),
+            reviewers: Vec::new(),
+            reviewer_prefix: "review".into(),
+        };
+        let letters = vec![l(1, "writer", "judge", "DRAFT=```python\npass\n```")];
+        let ctx = OrchestratorCtx { letters: &letters, shops: &["judge".into(), "writer".into()] };
+
+        assert!(orch.on_letter(&letters[0], &ctx).is_empty());
+        assert_eq!(orch.finalize(&ctx), FinalState::Timeout);
+    }
+
+    /// 回归: 零时刻交稿仍应按最新稿计算审查波次
+    #[test]
+    fn review_zero_timestamp_uses_latest_draft_wave() {
+        let orch = ReviewOrchestrator {
+            judge: "judge".into(),
+            writer: "writer".into(),
+            reviewers: vec![("review_a".into(), "检查A".into(), "kw_a".into())],
+            reviewer_prefix: "review".into(),
+        };
+        let letters = vec![
+            l(0, "writer", "judge", "DRAFT=```python\npass\n```"),
+            l(1, "orchestrator", "review_a", "REVIEW=群审||底稿"),
+            l(2, "review_a", "judge", "CLEAN=review_a||检查A: 已覆盖"),
+        ];
+        let ctx = OrchestratorCtx { letters: &letters, shops: &["judge".into(), "writer".into(), "review_a".into()] };
+        let actions = orch.on_letter(&letters[2], &ctx);
+
+        assert!(actions.iter().any(|action| matches!(action, OrchestratorAction::Inject { body, .. } if body.contains("ARBIT="))));
+    }
+
+    /// 回归: 重复交稿不得被旧波次代发标记吞掉
+    #[test]
+    fn review_revision_gets_new_dispatch() {
+        let orch = ReviewOrchestrator {
+            judge: "judge".into(),
+            writer: "writer".into(),
+            reviewers: vec![("review_a".into(), "检查A".into(), "kw_a".into())],
+            reviewer_prefix: "review".into(),
+        };
+        let letters = vec![
+            l(1, "writer", "judge", "DRAFT=```python\npass\n```"),
+            l(2, "orchestrator", "review_a", "REVIEW=群审||初稿"),
+            l(3, "writer", "judge", "REVISED=```python\nfix\n```"),
+        ];
+        let ctx = OrchestratorCtx { letters: &letters, shops: &["judge".into(), "writer".into(), "review_a".into()] };
+        let actions = orch.on_letter(&letters[2], &ctx);
+
+        assert!(actions.iter().any(|action| matches!(action, OrchestratorAction::Inject { from, to, body, .. }
+            if from == "orchestrator" && to == "review_a" && body.contains("fix"))));
     }
 
     /// 回归 T10: 规模广播 — 收齐 N 家回声后自动注入 ARBIT

@@ -66,6 +66,16 @@ pub fn handle_line(hub: &TideHub, line: &str) -> String {
                 .collect();
             serde_json::to_string(&ToolReply::ok(&bodies.join("\n---\n"))).unwrap()
         }
+        "pulsing_recall" => {
+            // 链式召回(Super-agent 吸收): 按信件序号从账本取全文 — 账本即登记处
+            let id = args["letter_id"].as_u64().unwrap_or(0);
+            match hub.journal.replay().into_iter().find(|l| l.seq == id) {
+                Some(l) => serde_json::to_string(&ToolReply::ok(&format!(
+                    "[信#{seq}] 来自 {from} → {to}: {body}", seq = l.seq, from = l.from, to = l.to, body = l.body
+                ))).unwrap(),
+                None => serde_json::to_string(&ToolReply::err(&format!("信件#{id}不存在(账本中查无此序号)"))).unwrap(),
+            }
+        }
         "pulsing_health" => {
             let shops = hub.shops.len();
             let turns: u64 = hub.shops.values()
@@ -275,6 +285,11 @@ fn tools_schema() -> serde_json::Value {
         {"name": "pulsing_drain_mail",
          "description": "取走并清空自己信箱里的全部信",
          "inputSchema": {"type": "object", "properties": {}}},
+        {"name": "pulsing_recall",
+         "description": "按信件序号从账本取回信件全文(截断信的全文/历史上下文召回)",
+         "inputSchema": {"type": "object", "properties": {
+             "letter_id": {"type": "integer", "description": "信#后的数字序号"}
+         }, "required": ["letter_id"]}},
         {"name": "pulsing_health",
          "description": "查看系统健康状态",
          "inputSchema": {"type": "object", "properties": {}}},

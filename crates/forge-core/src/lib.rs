@@ -9,3 +9,5 @@ pub use auth::{authorize, Action, Identity, TokenRing};
 pub mod orchestrator;
 pub use orchestrator::{Orchestrator, OrchestratorCtx, OrchestratorAction, FinalState, SetupLetter,
     ReviewOrchestrator, PipelineOrchestrator, DebateOrchestrator, SaboteurOrchestrator, RelayChainOrchestrator, BroadcastOrchestrator, LetterSchema};
+pub mod watchdog;
+pub use watchdog::{WatchdogAlert, WatchdogConfig, inspect as watchdog_inspect, kick_body};

@@ -63,21 +63,28 @@ impl Acl {
 pub struct Journal {
     dir: PathBuf,
     pub write_fails: std::sync::atomic::AtomicU64,
+    next_seq: std::sync::atomic::AtomicU64,
 }
 
 impl Journal {
     pub fn new(dir: impl Into<PathBuf>) -> std::io::Result<Self> {
         let dir = dir.into();
         std::fs::create_dir_all(&dir)?;
-        Ok(Journal {
+        let j = Journal {
             dir,
             write_fails: std::sync::atomic::AtomicU64::new(0),
-        })
+            next_seq: std::sync::atomic::AtomicU64::new(1),
+        };
+        // 回放存量账本, 把 seq 接续到最大值之后(支持跨进程追加不重号)
+        let max_seq = j.replay().iter().map(|l| l.seq).max().unwrap_or(0);
+        j.next_seq.store(max_seq + 1, std::sync::atomic::Ordering::SeqCst);
+        Ok(j)
     }
-    pub fn append(&self, l: &Letter) {
+    pub fn append(&self, l: &mut Letter) {
+        l.seq = self.next_seq.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         let path = self.dir.join(format!("events-{}.jsonl", l.from));
         let line = serde_json::json!({
-            "ts_ms": l.ts_ms, "from": l.from, "to": l.to, "body": l.body,
+            "seq": l.seq, "ts_ms": l.ts_ms, "from": l.from, "to": l.to, "body": l.body,
             "ev": "reply_out",
         });
         let r = OpenOptions::new()
@@ -121,6 +128,7 @@ impl Journal {
                         if let Ok(v) = serde_json::from_str::<serde_json::Value>(line) {
                             if v["ev"] == "reply_out" {
                                 out.push(Letter {
+                                    seq: v["seq"].as_u64().unwrap_or(0),
                                     ts_ms: v["ts_ms"].as_u64().unwrap_or(0),
                                     from: v["from"].as_str().unwrap_or("").into(),
                                     to: v["to"].as_str().unwrap_or("").into(),
@@ -200,13 +208,14 @@ impl Hub {
             Some((prefix, arb)) if from.starts_with(prefix) && to == arb => true,
             _ => silent,
         };
-        let l = Letter {
+        let mut l = Letter {
+            seq: 0,
             ts_ms: self.tick(),
             from: from.into(),
             to: to.into(),
             body: body.into(),
         };
-        self.journal.append(&l);
+        self.journal.append(&mut l);
         self.mailboxes
             .entry(to.to_string())
             .or_default()
@@ -259,13 +268,14 @@ impl Hub {
 
     /// 外部点火(编排器通道, 不受店员ACL约束面: 编排器是规则之源)。
     pub fn ignite(&mut self, to: &str, body: &str) -> Result<(), String> {
-        let l = Letter {
+        let mut l = Letter {
+            seq: 0,
             ts_ms: self.tick(),
             from: "orchestrator".into(),
             to: to.into(),
             body: body.into(),
         };
-        self.journal.append(&l);
+        self.journal.append(&mut l);
         self.mailboxes
             .entry(to.to_string())
             .or_default()

@@ -105,13 +105,19 @@ impl TideHub {
             from_codex && from.starts_with(prefix) && to == arb
         } else { silent };
 
-        let l = Letter {
+        let mut l = Letter {
+            seq: 0,
             ts_ms: self.tick(),
             from: from.to_string(),
             to: to.to_string(),
             body: body.to_string(),
         };
-        self.journal.append(&l);
+        self.journal.append(&mut l);
+        // MCP 发信计入回合产出判定(execute_turn 依此识别"本回合有产出",
+        // 否则广播回合被误判零发送而三连重试 — 30店广播实测烧3倍配额)
+        if let Some(st) = self.shops.get(from) {
+            st.sent_count.fetch_add(1, Ordering::SeqCst);
+        }
         if let Some(mb) = self.mailboxes.get(to) {
             mb.lock().unwrap().push(l);
         }
@@ -148,23 +154,30 @@ impl TideHub {
     pub fn turn_prompt_full(&self, shop: &str, letters: &[Letter]) -> String {
         let trigger = letters.last();
         let others: Vec<&Letter> = letters.iter().rev().skip(1).collect();
+        // Inline & Spill(Super-agent 吸收): 窗口内只内联前400字符, 全文留在账本可 recall
+        let clip = |b: &str| -> String {
+            if b.chars().count() > 400 {
+                format!("{}…(截断: 调用 pulsing_recall(letter_id=N) 取全文)", b.chars().take(400).collect::<String>())
+            } else { b.to_string() }
+        };
         let mut body = format!(
             "你是协作团队中的一员。店名: {shop}。职责: {shop}\n\n\
              --- 触发信(最新) ---\n{trig}\n--- 触发信结束 ---\n",
             shop = shop,
-            trig = trigger.map(|l| format!("来自 {}: {}", l.from, l.body)).unwrap_or_default()
+            trig = trigger.map(|l| format!("[信#{seq}] 来自 {from}: {b}", seq = l.seq, from = l.from, b = clip(&l.body))).unwrap_or_default()
         );
         if !others.is_empty() {
             body.push_str("\n--- 信箱其他信件(规程/上下文, 按时间倒序) ---\n");
             for l in others.iter().take(5) {  // 最多5封防过长
-                body.push_str(&format!("来自 {}: {}\n", l.from, l.body));
+                body.push_str(&format!("[信#{seq}] 来自 {from}: {b}\n", seq = l.seq, from = l.from, b = clip(&l.body)));
             }
             body.push_str("--- 其他信件结束 ---\n");
         }
         body.push_str(
             "\n【必须调用工具】按信件指示调用工具完成任务\
-             (可多次调用: pulsing_send/pulsing_broadcast/pulsing_drain_mail/pulsing_health);\
-             若信件未指定动作, 则调用 pulsing_send 发送结果后结束。禁止纯文字回复、禁止总结、禁止解释。"
+             (可多次调用: pulsing_send/pulsing_broadcast/pulsing_drain_mail/pulsing_health/pulsing_recall;\
+             截断信件需要全文时用 pulsing_recall, 参数 letter_id=信#后的数字);\
+             若信件未指定动作且无需处理, 直接结束回合且不发送任何信件(尤其禁止发送“已收到/确认”类信件)。需要动作时禁止纯文字回复、禁止总结、禁止解释。"
         );
         body
     }
@@ -175,8 +188,8 @@ impl TideHub {
             "你是协作团队中的一员。店名: {shop}。职责: {shop}\n\n\
              你收到了一封来自 {from} 的信件, 全文如下:\n--- 信件开始 ---\n{body}\n--- 信件结束 ---\n\n\
              【必须调用工具】按信件指示调用工具完成任务\
-             (可多次调用: pulsing_send/pulsing_broadcast/pulsing_drain_mail/pulsing_health);\
-             若信件未指定动作, 则调用 pulsing_send 发送结果后结束。禁止纯文字回复、禁止总结、禁止解释。",
+             (可多次调用: pulsing_send/pulsing_broadcast/pulsing_drain_mail/pulsing_health/pulsing_recall);\
+             若信件未指定动作且无需处理, 直接结束回合且不发送任何信件(尤其禁止发送“已收到/确认”类信件)。需要动作时禁止纯文字回复、禁止总结、禁止解释。",
             shop = shop, from = letter.from, body = letter.body
         )
     }
@@ -386,7 +399,8 @@ mod tests {
     fn turn_prompt_embeds_letter() {
         let mut hub = TideHub::new("/tmp/forge-tide-test6", 12400).unwrap();
         hub.add_shop("writer", "m");
-        let l = Letter {
+        let mut l = Letter {
+            seq: 0,
             ts_ms: 1, from: "judge".into(), to: "writer".into(),
             body: "TASK=写一个函数".into(),
         };

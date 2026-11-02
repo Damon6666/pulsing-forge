@@ -4,9 +4,11 @@
 use std::collections::HashMap;
 
 /// 一封信的最小表示(来自账本回放)。
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct Letter {
     pub ts_ms: u64,
+    /// 账本序号(journal 追加时分配; 内存构造默认0, recall 按它取全文)
+    pub seq: u64,
     pub from: String,
     pub to: String,
     pub body: String,
@@ -178,7 +180,7 @@ mod tests {
 
     fn l(ts: u64, from: &str, to: &str, body: &str) -> Letter {
         Letter {
-            ts_ms: ts,
+            ts_ms: ts, seq: 0,
             from: from.into(),
             to: to.into(),
             body: body.into(),

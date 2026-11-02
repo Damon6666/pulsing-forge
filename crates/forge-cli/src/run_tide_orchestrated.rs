@@ -203,15 +203,42 @@ pub fn run_tide_orchestrated(sc: &crate::Scenario, run_dir: &str) -> String {
     let start = Instant::now();
     let mut final_state = FinalState::Timeout;
     let mut processed: usize = 0;  // 已处理过的信件数(增量回调, 防重复注入)
+    // 进度看门狗(Super-agent 吸收): 外部 Control Loop, 从账本识别无进展模式并诊断踢
+    let wd_cfg = forge_core::WatchdogConfig::default();
+    let mut wd_fired: std::collections::HashMap<(String, String), std::time::Instant> =
+        std::collections::HashMap::new();  // (店, 告警类) → 上次触发时刻, 60s限频
 
     loop {
         std::thread::sleep(Duration::from_secs(5));
         let elapsed = start.elapsed().as_secs();
 
         let letters = hub.journal.replay();
+        let mut injected = false;
+
+        // 进度看门狗: 同构循环/杂信风暴 → 诊断性踢(每店每类60秒一次, 幂等)
+        for alert in forge_core::watchdog_inspect(&letters, &wd_cfg) {
+            let key = match &alert {
+                forge_core::WatchdogAlert::Loop { shop, .. } => (shop.clone(), "loop".into()),
+                forge_core::WatchdogAlert::Chatter { shop, .. } => (shop.clone(), "chatter".into()),
+            };
+            let cooldown_ok = wd_fired.get(&key)
+                .map(|t| t.elapsed() >= Duration::from_secs(60))
+                .unwrap_or(true);
+            if cooldown_ok {
+                wd_fired.insert(key, std::time::Instant::now());
+                let (shop, why) = match &alert {
+                    forge_core::WatchdogAlert::Loop { shop, count, .. } =>
+                        (shop.clone(), format!("同构循环×{count}")),
+                    forge_core::WatchdogAlert::Chatter { shop, count, .. } =>
+                        (shop.clone(), format!("杂信风暴×{count}")),
+                };
+                println!("  [看门狗] 踢 → {shop}: {why}");
+                let _ = hub.send("watchdog", &shop, &forge_core::kick_body(&alert), false, false);
+                injected = true;
+            }
+        }
 
         // 处理编排器回调(只处理新到的信, 防止同一封尾巴信被反复回调)
-        let mut injected = false;
         for letter in letters.iter().skip(processed) {
             let ctx = OrchestratorCtx { letters: &letters, shops: &shops };
             for action in orch.on_letter(letter, &ctx) {
