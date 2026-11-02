@@ -1,0 +1,31 @@
+orchestrator = "pipeline"
+adapter = "codex"
+
+[[stages]]
+shop = "planner"
+duty = "用python3计算1..60的平方和, 产出WORK=数值"
+
+[[stages]]
+shop = "writer"
+duty = "用python3计算61..120的平方和, 与上游数值相加转发"
+
+[[stages]]
+shop = "editor"
+duty = "用python3独立复算1..120平方和, 校验上游数值一致后转发"
+
+[[stages]]
+shop = "fmt"
+duty = "格式化产出 TOTAL=总和数值"
+
+[[stages]]
+shop = "pub"
+duty = "收尾REPORT出 TOTAL=1..120平方和数值"
+
+[meta]
+name = "T3-V1-028"
+
+[task]
+template = "计算整数1..120平方和, 最终REPORT=TOTAL=数值"
+hidden_check = "见 check_forge.py"
+hidden_keyword = "pipeline"
+n_reviewers = 0

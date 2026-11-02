@@ -1,0 +1,32 @@
+orchestrator = "relay"
+adapter = "codex"
+relay_input = "任务: 写python函数clamp(i,lo,hi)"
+
+[[stages]]
+shop = "n1"
+duty = "写出clamp(i,lo,hi)初稿代码转发"
+
+[[stages]]
+shop = "n2"
+duty = "审查上游clamp代码: 找出bug与边界问题并标注转发"
+
+[[stages]]
+shop = "n3"
+duty = "按审查意见修复得到正确clamp代码转发"
+
+[[stages]]
+shop = "n4"
+duty = "给最终代码加```python围栏并格式化转发"
+
+[[stages]]
+shop = "n5"
+duty = "收尾产出带完整代码围栏的最终clamp"
+
+[meta]
+name = "T1-V3-004"
+
+[task]
+template = "写python函数clamp(i,lo,hi), 全链走 写→审→改→交, 最终REPORT带```python围栏"
+hidden_check = "见 check_forge.py"
+hidden_keyword = "relay"
+n_reviewers = 0

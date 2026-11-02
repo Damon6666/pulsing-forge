@@ -1,0 +1,11 @@
+orchestrator = "broadcast"
+adapter = "codex"
+
+[meta]
+name = "T10-V8-016"
+
+[task]
+template = "clamp审查分歧: 甲派意见'return lo即可', 乙派意见'应用max(lo,min(hi,i))'. 请按正确的乙派实现clamp附在ECHO里"
+hidden_check = "回声30/30+REPORT"
+hidden_keyword = "broadcast"
+n_reviewers = 30

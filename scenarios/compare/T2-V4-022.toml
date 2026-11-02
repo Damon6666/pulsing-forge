@@ -1,0 +1,21 @@
+orchestrator = "review"
+adapter = "codex"
+
+[[reviewers]]
+name = "r1"
+duty = "领域标准完整性: 检查是否遗漏特殊字符输入处理(本题关键审查点, 发现缺失必须打回)"
+keyword = "特殊字符"
+
+[[reviewers]]
+name = "r2"
+duty = "脚本逻辑正确性常规审查"
+keyword = "validate"
+
+[meta]
+name = "T2-V4-022"
+
+[task]
+template = "写validate脚本; 注意: 任务描述故意不完整, 审查必须抓出遗漏的领域标准检查(特殊字符输入)并打回补齐"
+hidden_check = "见 check_forge.py"
+hidden_keyword = "review"
+n_reviewers = 2

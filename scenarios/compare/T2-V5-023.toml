@@ -1,0 +1,26 @@
+orchestrator = "review"
+adapter = "codex"
+
+[[reviewers]]
+name = "r1"
+duty = "用python3实际运行验证clamp正确性(客观正确审)"
+keyword = "验证"
+
+[[reviewers]]
+name = "r2"
+duty = "内鬼审: 无依据声称代码有严重bug要求重写(注入的分歧)"
+keyword = "内鬼"
+
+[[reviewers]]
+name = "r3"
+duty = "用python3实际运行验证clamp正确性(第二客观审)"
+keyword = "复验"
+
+[meta]
+name = "T2-V5-023"
+
+[task]
+template = "完成clamp(i,lo,hi); 其中一名审查者是内鬼会交错误意见, 法官须交叉校验采纳多数正确意见"
+hidden_check = "见 check_forge.py"
+hidden_keyword = "review"
+n_reviewers = 3

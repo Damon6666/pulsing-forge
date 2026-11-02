@@ -99,30 +99,34 @@ impl Orchestrator for ReviewOrchestrator {
         seeds.push(SetupLetter {
             shop: self.judge.clone(), to: self.judge.clone(), silent: true,
             body: format!(
-                "【指挥规程{judge}】见TASK=: pulsing_send(to='{writer}', silent=false, message='TASK=原文||写手动作:写脚本放```python围栏后 pulsing_send(to=\"{judge}\",silent=false,message=\"DRAFT=```python全文```\")')\n\
-                 见DRAFT=/REVISED=: pulsing_broadcast(to_list={rv_names:?}, message='REVIEW=群审||各查一事||底稿如下||'+脚本原文)\n\
-                 见ARBIT=: 全CLEAN→REPORT收尾; 有不通→一封REJECT打回\n\
-                 铁律: 不自己写代码; 收件人只填店名。",
+                "注意: 你的信箱里已有规程信\n\
+                 第二步: 把任务原文转发给写手(附写手动作: 写脚本放```python围栏, 回 pulsing_send(to=\"{judge}\",silent=false,message=\"DRAFT=```python全文```\"))\n\
+                 第三步【唯一正确动作】: 调用 pulsing_send 工具, 参数 to={writer}, silent=false, message=TASK=任务原文||写手动作:写脚本放```python围栏后交DRAFT\n\
+                 后续: 见DRAFT=→调用 pulsing_broadcast(to_list={rv_names:?}, message=REVIEW=群审||各查一事||底稿如下||脚本原文)\n\
+                 见ARBIT=→按机器裁决表执行唯一动作: 全CLEAN则REPORT收尾, 有NEEDS_FIX则一封REJECT打回写手\n\
+                 铁律: 必须调用 pulsing_send/pulsing_broadcast 工具; 禁止纯文字回复; 不自己写代码; 未收齐全部审查回信前禁止REPORT",
                 judge = self.judge, writer = self.writer, rv_names = rv_names
             ),
         });
         seeds.push(SetupLetter {
             shop: self.writer.clone(), to: self.writer.clone(), silent: true,
             body: format!(
-                "【写手规程{w}】见TASK=: 按任务写python函数, ```python围栏, pulsing_send(to='{j}', silent=false, message='DRAFT=```python全文```')\n\
-                 见REJECT=: 按意见补齐后重交 REVISED=```python全文```\n\
-                 铁律: 只给{j}发信; 必须带```围栏。",
-                w = self.writer, j = self.judge
+                "注意: 你的信箱里已有规程信\n\
+                 第二步: 按任务写出python函数并加```python围栏\n\
+                 第三步【唯一正确动作】: 调用 pulsing_send 工具, 参数 to={j}, silent=false, message=DRAFT=```python函数全文```\n\
+                 见REJECT=: 按意见补齐后 调用 pulsing_send(to={j}, silent=false, message=REVISED=```python全文```)\n\
+                 铁律: 必须调用 pulsing_send 工具; 禁止纯文字回复; 只给{j}发信; 必须带```围栏",
+                j = self.judge
             ),
         });
         for (name, duty, _kw) in &self.reviewers {
             seeds.push(SetupLetter {
                 shop: name.clone(), to: name.clone(), silent: true,
                 body: format!(
-                    "【审查规程{n}】见REVIEW=: 只查「{d}」一事。\n\
-                     合格: pulsing_send(to='{j}', silent=true, message='CLEAN={n}||{d}: 已覆盖')\n\
-                     不合格: pulsing_send(to='{j}', silent=true, message='NEEDS_FIX={n}||{d}: 缺失')\n\
-                     铁律: 只回{j}且silent=true。",
+                    "注意: 你的信箱里已有规程信\n\
+                     第二步: 只审查「{d}」这一件事(其余一律不管)\n\
+                     第三步【唯一正确动作】: 调用 pulsing_send 工具, 参数 to={j}, silent=true, message=CLEAN={n}||{d}: 已覆盖 (不合格则 message=NEEDS_FIX={n}||{d}: 缺失)\n\
+                     铁律: 必须调用 pulsing_send 工具; 禁止纯文字回复; 只回{j}且silent=true",
                     n = name, d = duty, j = self.judge
                 ),
             });
@@ -131,7 +135,7 @@ impl Orchestrator for ReviewOrchestrator {
     }
 
     fn ignition(&self) -> (String, String) {
-        ("judge".to_string(), "TASK=开始代码审查。先drain读规程, 然后派单给writer。".to_string())
+        ("judge".to_string(), "TASK=开始代码审查。先drain读规程, 然后按第三步把任务转发给writer。".to_string())
     }
 
     fn on_letter(&self, letter: &Letter, ctx: &OrchestratorCtx) -> Vec<OrchestratorAction> {
@@ -201,8 +205,7 @@ impl Orchestrator for ReviewOrchestrator {
         );
         let has_report = ctx.letters.iter().any(|l| l.from == self.judge && l.body.starts_with("REPORT="));
         if complete && has_report { FinalState::Pass }
-        else if has_report { FinalState::Degenerate("REPORT存在但回路不完整".into()) }
-        else { FinalState::Fail("无REPORT".into()) }
+        else { FinalState::Timeout }  // 回合在飞/回路未闭 = 仍在进行, 不提前判负(死限由主循环分类)
     }
 }
 
@@ -305,13 +308,18 @@ impl Orchestrator for DebateOrchestrator {
                 .filter(|l| l.body.starts_with("ARG=") && l.to == self.judge)
                 .map(|l| l.from.as_str()).collect();
             if args.len() >= 2 {
-                // 收齐 → 机器注入收尾指令(解决"不知何时结束")
-                actions.push(OrchestratorAction::Inject {
-                    from: "orchestrator".into(),
-                    to: self.judge.clone(),
-                    body: "ARBIT=两份论据已收齐。立即 pulsing_send(to='judge', silent=true, message='REPORT=辩论完成||正方论据||反方论据||一句话裁定') 收尾。".into(),
-                    silent: false,
-                });
+                // 幂等: 已注入过ARBIT就不再注入
+                let arbit_sent = ctx.letters.iter()
+                    .any(|l| l.from == "orchestrator" && l.to == self.judge && l.body.starts_with("ARBIT="));
+                if !arbit_sent {
+                    // 收齐 → 机器注入收尾指令(解决"不知何时结束")
+                    actions.push(OrchestratorAction::Inject {
+                        from: "orchestrator".into(),
+                        to: self.judge.clone(),
+                        body: "ARBIT=两份论据已收齐。立即 pulsing_send(to='judge', silent=true, message='REPORT=辩论完成||正方论据||反方论据||一句话裁定') 收尾。".into(),
+                        silent: false,
+                    });
+                }
             }
         }
         if letter.from == self.judge && letter.body.starts_with("REPORT=") {
@@ -372,6 +380,10 @@ impl Orchestrator for SaboteurOrchestrator {
             let verifies: Vec<&Letter> = ctx.letters.iter()
                 .filter(|l| l.body.starts_with("VERIFY=") && l.to == self.judge).collect();
             if results.len() >= 2 && verifies.len() >= 2 {
+                // 幂等: 已注入过ARBIT就不再注入
+                let arbit_sent = ctx.letters.iter()
+                    .any(|l| l.from == "orchestrator" && l.to == self.judge && l.body.starts_with("ARBIT="));
+                if !arbit_sent {
                 // 机器交叉校验: 双核算一致取共识值(不可信单源, 也禁止把重叠区间求和)
                 let values: Vec<u64> = verifies.iter()
                     .filter_map(|l| l.body.split("||").nth(1))
@@ -393,6 +405,7 @@ impl Orchestrator for SaboteurOrchestrator {
                     body: arbit,
                     silent: false,
                 });
+                }
             }
         }
         if letter.from == self.judge && letter.body.starts_with("REPORT=TOTAL=") {
@@ -532,12 +545,18 @@ pub struct BroadcastOrchestrator {
 impl Orchestrator for BroadcastOrchestrator {
     fn setup(&self, _ctx: &OrchestratorCtx) -> Vec<SetupLetter> {
         let mut seeds = Vec::new();
+        // 广播载荷(可空): chief 透传给全体回声店, 回声店按其要求行动
+        let payload = if self.message.trim().is_empty() {
+            String::new()
+        } else {
+            format!("||任务: {}", self.message)
+        };
         // 每家回声店的规程(三步铁律格式)
         for shop in &self.echo_shops {
             seeds.push(SetupLetter {
                 shop: shop.clone(), to: shop.clone(), silent: true,
                 body: format!(
-                    "注意: 你的信箱里已有规程信\n第二步: 确认收到广播\n第三步【唯一正确动作】: 调用 pulsing_send 工具, 参数 to={}, silent=true, message=ECHO={}|收到\n铁律: 必须调用 pulsing_send 工具; 禁止纯文字回复; 只给 {} 发信",
+                    "注意: 你的信箱里已有规程信\n第二步: 收到广播后, 按广播信里的任务要求完成动作(计算/写码/确认)\n第三步【唯一正确动作】: 调用 pulsing_send 工具, 参数 to={}, silent=true, message=ECHO={}|按广播要求完成后的产出(数值或一句话)\n铁律: 必须调用 pulsing_send 工具; 禁止纯文字回复; 只给 {} 发信",
                     self.chief, shop, self.chief
                 ),
             });
@@ -548,8 +567,8 @@ impl Orchestrator for BroadcastOrchestrator {
         seeds.push(SetupLetter {
             shop: self.chief.clone(), to: self.chief.clone(), silent: true,
             body: format!(
-                "注意: 你的信箱里已有规程信\n第二步: 向全部{}家回声店发一次广播\n第三步【唯一正确动作】: 调用 pulsing_broadcast 工具, 参数 to_list=[{}], silent=false, message=ECHO=报名\n铁律: 必须调用 pulsing_broadcast 工具(只调一次); 禁止逐家单发; 未收齐{}个ECHO前禁止发REPORT; 广播后直接结束回合, 不要等待",
-                self.echo_shops.len(), list_fmt, self.echo_shops.len()
+                "注意: 你的信箱里已有规程信\n第二步: 向全部{}家回声店发一次广播\n第三步【唯一正确动作】: 调用 pulsing_broadcast 工具, 参数 to_list=[{}], silent=false, message=ECHO=报名{}\n铁律: 必须调用 pulsing_broadcast 工具(只调一次); 禁止逐家单发; 未收齐{}个ECHO前禁止发REPORT; 广播后直接结束回合, 不要等待",
+                self.echo_shops.len(), list_fmt, payload, self.echo_shops.len()
             ),
         });
         seeds
@@ -568,7 +587,10 @@ impl Orchestrator for BroadcastOrchestrator {
                 .filter(|l| l.body.starts_with("ECHO=") && l.to == self.chief)
                 .map(|l| l.from.as_str()).collect();
             let n = self.echo_shops.len();
-            if echoes.len() >= n {
+            // 幂等: 已注入过ARBIT就不再注入(迟到回声每封都会再触发本回调)
+            let arbit_sent = ctx.letters.iter()
+                .any(|l| l.from == "orchestrator" && l.to == self.chief && l.body.starts_with("ARBIT="));
+            if echoes.len() >= n && !arbit_sent {
                 actions.push(OrchestratorAction::Inject {
                     from: "orchestrator".into(),
                     to: self.chief.clone(),

@@ -1,0 +1,32 @@
+orchestrator = "relay"
+adapter = "codex"
+relay_input = "任务: 完成clamp(i,lo,hi); 有成员会拖延"
+
+[[stages]]
+shop = "n1"
+duty = "写出clamp(i,lo,hi)初稿转发"
+
+[[stages]]
+shop = "n2"
+duty = "先用python3打印前100个质数表(本工序较慢, 属正常), 然后审查上游代码转发"
+
+[[stages]]
+shop = "n3"
+duty = "按审查意见修复clamp转发"
+
+[[stages]]
+shop = "n4"
+duty = "给最终代码加```python围栏转发"
+
+[[stages]]
+shop = "n5"
+duty = "收尾产出带围栏的最终clamp"
+
+[meta]
+name = "T1-V6-007"
+
+[task]
+template = "完成clamp(i,lo,hi), 有成员拖延, 等其完成后REPORT带围栏"
+hidden_check = "见 check_forge.py"
+hidden_keyword = "relay"
+n_reviewers = 0

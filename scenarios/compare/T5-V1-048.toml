@@ -1,0 +1,11 @@
+orchestrator = "broadcast"
+adapter = "codex"
+
+[meta]
+name = "T5-V1-048"
+
+[task]
+template = "对等共识: 每家店用python3独立计算整数1..120的平方和, 把精确数值附在你的ECHO回声里"
+hidden_check = "回声8/8+REPORT"
+hidden_keyword = "broadcast"
+n_reviewers = 8

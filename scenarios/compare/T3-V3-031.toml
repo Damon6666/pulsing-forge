@@ -1,0 +1,31 @@
+orchestrator = "pipeline"
+adapter = "codex"
+
+[[stages]]
+shop = "planner"
+duty = "写出clamp(i,lo,hi)初稿, 产出WORK=代码"
+
+[[stages]]
+shop = "writer"
+duty = "审查上游代码找bug并转发意见与代码"
+
+[[stages]]
+shop = "editor"
+duty = "按审查意见修复得到正确clamp转发"
+
+[[stages]]
+shop = "fmt"
+duty = "给最终代码加```python围栏格式化转发"
+
+[[stages]]
+shop = "pub"
+duty = "收尾REPORT出带围栏的最终clamp代码"
+
+[meta]
+name = "T3-V3-031"
+
+[task]
+template = "写python函数clamp(i,lo,hi), 写→审→改→交, 最终REPORT带```python围栏"
+hidden_check = "见 check_forge.py"
+hidden_keyword = "pipeline"
+n_reviewers = 0

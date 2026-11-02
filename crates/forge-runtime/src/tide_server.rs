@@ -112,21 +112,39 @@ pub async fn shop_scheduler_from(hub: Arc<TideHub>, shop: String, skip_before: u
             .map(|m| m.lock().unwrap().clone())
             .unwrap_or_default();
         let has_new = letters.iter().any(|l| !l.body.starts_with("KICK=") && l.ts_ms > last_ts);
-        if has_new {
-            if let Some(t) = letters.iter().rev().find(|l| !l.body.starts_with("KICK=")) {
-                last_ts = t.ts_ms;
-            }
-            // 清空信箱但保留全部信件用于 turn_prompt(规程信不丢)
-            let all_letters = letters.clone();
-            if let Some(mb) = hub.mailboxes.get(&shop) {
-                mb.lock().unwrap().clear();
-            }
-            let h2 = hub.clone();
-            let s2 = shop.clone();
-            let _ = tokio::task::spawn_blocking(move || {
-                h2.run_turn_full(&s2, &all_letters)
-            }).await;
+        if !has_new { continue; }
+
+        // 去抖: 等信流入静默(2秒无新信)再触发, 扇入风暴时攒一批一次处理
+        // (30店广播时逐封触发会烧穿收单者的回合预算与配额 — taxonomy #7 扇入风暴)
+        let mut settled = letters;
+        let mut quiet_polls = 0u32;
+        let mut total_polls = 0u32;
+        while quiet_polls < 4 && total_polls < 12 {
+            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+            total_polls += 1;
+            let cur = hub.mailboxes.get(&shop)
+                .map(|m| m.lock().unwrap().clone())
+                .unwrap_or_default();
+            let arrived = cur.len() > settled.len()
+                || cur.iter().any(|l| !l.body.starts_with("KICK=") && l.ts_ms > last_ts
+                    && !settled.iter().any(|s| s.ts_ms == l.ts_ms && s.body == l.body));
+            if arrived { quiet_polls = 0; settled = cur; }
+            else { quiet_polls += 1; }
         }
+
+        if let Some(t) = settled.iter().rev().find(|l| !l.body.starts_with("KICK=")) {
+            last_ts = t.ts_ms;
+        }
+        // 清空信箱但保留全部信件用于 turn_prompt(规程信不丢)
+        let all_letters = settled;
+        if let Some(mb) = hub.mailboxes.get(&shop) {
+            mb.lock().unwrap().clear();
+        }
+        let h2 = hub.clone();
+        let s2 = shop.clone();
+        let _ = tokio::task::spawn_blocking(move || {
+            h2.run_turn_full(&s2, &all_letters)
+        }).await;
     }
 }
 

@@ -1,0 +1,12 @@
+orchestrator = "debate"
+adapter = "codex"
+debate_topic = "clamp(i,lo,hi)实现之争: 甲方主张'return lo最简单', 乙方主张'应用max(lo,min(hi,i))才正确'. 双方各自论证, 法官裁定采纳正确一方"
+
+[meta]
+name = "T7-V8-070"
+
+[task]
+template = "clamp(i,lo,hi)实现之争: 甲方主张'return lo最简单', 乙方主张'应用max(lo,min(hi,i))才正确'. 双方各自论证, 法官裁定采纳正确一方。裁定必须写明采纳结论"
+hidden_check = "见 check_forge.py"
+hidden_keyword = "debate"
+n_reviewers = 0

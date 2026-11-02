@@ -1,0 +1,32 @@
+orchestrator = "relay"
+adapter = "codex"
+relay_input = "任务: 把1..120分片处理"
+
+[[stages]]
+shop = "n1"
+duty = "制定分片方案: 列出互不重叠且并集=1..120的分片清单转发"
+
+[[stages]]
+shop = "n2"
+duty = "用python3计算分片方案中第1片区间平方和, 连同方案转发"
+
+[[stages]]
+shop = "n3"
+duty = "用python3计算第2片区间平方和, 与上游累计转发"
+
+[[stages]]
+shop = "n4"
+duty = "用python3计算第3片区间平方和, 与上游累计转发"
+
+[[stages]]
+shop = "n5"
+duty = "校验分片互不重叠且并集=全集; 用python3独立复算1..120全程平方和核对总和, 不一致以复算为准, 收尾产出 TOTAL=1..120总和+分片清单"
+
+[meta]
+name = "T1-V9-010"
+
+[task]
+template = "把1..120分片处理, 每片互不重叠且并集=全集, 最终REPORT=TOTAL=总和+分片清单"
+hidden_check = "见 check_forge.py"
+hidden_keyword = "relay"
+n_reviewers = 0

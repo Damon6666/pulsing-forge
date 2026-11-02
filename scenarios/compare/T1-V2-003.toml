@@ -1,0 +1,32 @@
+orchestrator = "relay"
+adapter = "codex"
+relay_input = "pulsing makes agents cooperate"
+
+[[stages]]
+shop = "n1"
+duty = "去除文本中的所有空格, 转发结果"
+
+[[stages]]
+shop = "n2"
+duty = "把文本首字母大写, 转发结果"
+
+[[stages]]
+shop = "n3"
+duty = "把文本整串反转, 转发结果"
+
+[[stages]]
+shop = "n4"
+duty = "逐字符校对上游反转结果无误后原样转发"
+
+[[stages]]
+shop = "n5"
+duty = "收尾产出 RESULT=最终字符串"
+
+[meta]
+name = "T1-V2-003"
+
+[task]
+template = "把句子依次做去空格→首字母大写→反转, 最终REPORT=RESULT=字符串"
+hidden_check = "见 check_forge.py"
+hidden_keyword = "relay"
+n_reviewers = 0

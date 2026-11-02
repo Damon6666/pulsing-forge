@@ -1,0 +1,11 @@
+orchestrator = "broadcast"
+adapter = "codex"
+
+[meta]
+name = "T10-V10-012"
+
+[task]
+template = "预算受限: 每家店只许一次回合完成: 写出clamp(i,lo,hi)附在ECHO里"
+hidden_check = "回声30/30+REPORT"
+hidden_keyword = "broadcast"
+n_reviewers = 30

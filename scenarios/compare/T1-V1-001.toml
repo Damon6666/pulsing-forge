@@ -1,0 +1,32 @@
+orchestrator = "relay"
+adapter = "codex"
+relay_input = "0"
+
+[[stages]]
+shop = "n1"
+duty = "用python3计算1..24的平方和, 与上游数值相加, 把累计和转发"
+
+[[stages]]
+shop = "n2"
+duty = "用python3计算25..48的平方和, 与上游累计和相加转发"
+
+[[stages]]
+shop = "n3"
+duty = "用python3计算49..72的平方和, 与上游累计和相加转发"
+
+[[stages]]
+shop = "n4"
+duty = "用python3计算73..96的平方和, 与上游累计和相加转发"
+
+[[stages]]
+shop = "n5"
+duty = "用python3计算97..120的平方和, 与上游累计和相加; 再用python3独立复算1..120全程平方和核对, 不一致以复算为准, 收尾产出 TOTAL=总和数值"
+
+[meta]
+name = "T1-V1-001"
+
+[task]
+template = "计算整数1..120平方和, 最终REPORT=TOTAL=数值"
+hidden_check = "见 check_forge.py"
+hidden_keyword = "relay"
+n_reviewers = 0

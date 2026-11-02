@@ -1,0 +1,11 @@
+orchestrator = "broadcast"
+adapter = "codex"
+
+[meta]
+name = "T10-V6-015"
+
+[task]
+template = "写一个python函数clamp(i,lo,hi)附在ECHO里; 其中e17请先仔细从1数到30再回声(模拟掉队者)"
+hidden_check = "回声30/30+REPORT"
+hidden_keyword = "broadcast"
+n_reviewers = 30

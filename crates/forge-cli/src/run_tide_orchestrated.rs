@@ -39,12 +39,14 @@ fn build_orchestrator(sc: &crate::Scenario) -> (Vec<String>, Box<dyn Orchestrato
             (shops, Box::new(forge_core::SaboteurOrchestrator { judge: "judge".into() }))
         }
         "broadcast" => {
+            // 回声店数量经 task.n_reviewers 传入(默认5); 店名沿用旧批的 e1..eN
+            let n = if sc.task.n_reviewers > 0 { sc.task.n_reviewers } else { 5 };
             let echo_shops: Vec<String> =
-                (1..=5).map(|i| format!("shop{i}")).collect();
+                (1..=n).map(|i| format!("e{i}")).collect();
             let mut shops = vec!["chief".into()];
             shops.extend(echo_shops.iter().cloned());
             let msg = if sc.task.template.is_empty() {
-                "全员集合点名".to_string()
+                String::new()
             } else {
                 sc.task.template.clone()
             };

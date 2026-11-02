@@ -1,0 +1,26 @@
+orchestrator = "review"
+adapter = "codex"
+
+[[reviewers]]
+name = "r1"
+duty = "clamp逻辑与边界全面审查"
+keyword = "clamp"
+
+[[reviewers]]
+name = "r2"
+duty = "python语法与可运行性审查"
+keyword = "语法"
+
+[[reviewers]]
+name = "r3"
+duty = "交付格式审查: 必须带```python围栏"
+keyword = "围栏"
+
+[meta]
+name = "T6-V3-057"
+
+[task]
+template = "写一个python函数clamp(i,lo,hi), 全链走 写→审→改→交"
+hidden_check = "见 check_forge.py"
+hidden_keyword = "review"
+n_reviewers = 3

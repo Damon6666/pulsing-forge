@@ -1,0 +1,26 @@
+orchestrator = "review"
+adapter = "codex"
+
+[[reviewers]]
+name = "r1"
+duty = "用python3计算1..40平方和作为分片1结果"
+keyword = "分片"
+
+[[reviewers]]
+name = "r2"
+duty = "用python3计算41..80平方和作为分片2结果"
+keyword = "分片"
+
+[[reviewers]]
+name = "r3"
+duty = "用python3计算81..120平方和作为分片3结果"
+keyword = "分片"
+
+[meta]
+name = "T2-V9-027"
+
+[task]
+template = "把1..120分片处理, 每片结果须互不重叠且并集=全集, 法官汇总产出TOTAL"
+hidden_check = "见 check_forge.py"
+hidden_keyword = "review"
+n_reviewers = 3

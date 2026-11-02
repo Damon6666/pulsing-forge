@@ -1,0 +1,11 @@
+orchestrator = "broadcast"
+adapter = "codex"
+
+[meta]
+name = "T10-V1-011"
+
+[task]
+template = "用python3计算整数1..120的平方和, 把精确数值附在你的ECHO回声里"
+hidden_check = "回声30/30+REPORT"
+hidden_keyword = "broadcast"
+n_reviewers = 30

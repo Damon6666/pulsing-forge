@@ -1,0 +1,11 @@
+orchestrator = "broadcast"
+adapter = "codex"
+
+[meta]
+name = "T10-V3-014"
+
+[task]
+template = "写一个python函数clamp(i,lo,hi), 把代码附在你的ECHO回声里"
+hidden_check = "回声30/30+REPORT"
+hidden_keyword = "broadcast"
+n_reviewers = 30

@@ -1,0 +1,11 @@
+orchestrator = "broadcast"
+adapter = "codex"
+
+[meta]
+name = "T10-V9-017"
+
+[task]
+template = "分片计算: 每家店e_k负责区间[(k-1)*4+1, k*4]的平方和(k=店铺编号), 用python3算出后附在ECHO回声里"
+hidden_check = "回声30/30+REPORT"
+hidden_keyword = "broadcast"
+n_reviewers = 30

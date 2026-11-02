@@ -1,0 +1,11 @@
+orchestrator = "broadcast"
+adapter = "codex"
+
+[meta]
+name = "T10-V2-013"
+
+[task]
+template = "把句子'pulsing makes agents cooperate'依次做 去空格→首字母大写→反转, 把结果字符串附在你的ECHO回声里"
+hidden_check = "回声30/30+REPORT"
+hidden_keyword = "broadcast"
+n_reviewers = 30
