@@ -2,7 +2,7 @@
 # 原题重考批: 27个旧FAIL场景 → Forge 真 LLM 重跑 → 旧checker复刻判定 → 对比表
 set -u
 cd /mnt/c/Users/daimeng/.zcode/workspace/default/forge
-export FORGE_API_KEY=f6434600b75f40109f0f178c2acfd12f.oL8O5g46t8kwZIGP
+export FORGE_API_KEY="${FORGE_API_KEY:?请通过环境变量传入key, 不得写入文件}"
 export FORGE_BASE_URL=http://127.0.0.1:4015/v1
 OUT=/mnt/d/tmp/forge-compare
 mkdir -p "$OUT"
