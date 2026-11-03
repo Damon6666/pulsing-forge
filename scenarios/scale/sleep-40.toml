@@ -1,0 +1,11 @@
+orchestrator = "broadcast"
+adapter = "codex"
+
+[meta]
+name = "sleep-40"
+
+[task]
+template = "可扩展性基准: 总睡眠600秒切成40段, 每段SLEEP=15秒, 每店真实sleep后回ECHO, chief收齐打印done"
+hidden_check = "回声40/40+done"
+hidden_keyword = "scale"
+n_reviewers = 40

@@ -1,0 +1,11 @@
+orchestrator = "broadcast"
+adapter = "codex"
+
+[meta]
+name = "sleep-quick"
+
+[task]
+template = "基准: 总睡眠20秒切4段, 每段SLEEP=5秒, 每店真实sleep后回ECHO"
+hidden_check = "4/4"
+hidden_keyword = "scale"
+n_reviewers = 4

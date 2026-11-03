@@ -63,6 +63,8 @@ pub struct TideHub {
     next_ts: AtomicU64,
     /// stderr 是否落账(诊断用)
     pub capture_stderr: bool,
+    /// 睡眠执行器(可扩展性基准): FORGE_SLEEP_EXEC=1 时回合=真实sleep, 不调codex/LLM
+    pub sleep_exec: bool,
 }
 
 impl TideHub {
@@ -81,6 +83,7 @@ impl TideHub {
             auto_silence: None,
             next_ts: AtomicU64::new(1),
             capture_stderr: true,
+            sleep_exec: std::env::var("FORGE_SLEEP_EXEC").ok().as_deref() == Some("1"),
         })
     }
 
@@ -225,8 +228,53 @@ impl TideHub {
 
     /// codex 回合(全信箱版): 提示词包含全部信件(规程+触发都在 — worker 靠规程信知道怎么调工具)
     pub fn run_turn_full(&self, shop: &str, all_letters: &[Letter]) -> Result<(), String> {
+        // 睡眠执行器(可扩展性基准): 工作负载=真实sleep, 协议层全真(信箱/并发调度/闸门/闭合/账本)
+        if self.sleep_exec {
+            return self.sleep_turn(shop, all_letters);
+        }
         let prompt = self.turn_prompt_full(shop, all_letters);
         self.execute_turn(shop, &prompt)
+    }
+
+    /// 睡眠执行器: 按 SLEEP=<秒> 指令行动 —
+    /// chief: TASK=→广播给全部回声店; ARBIT=→收尾REPORT
+    /// 回声店: ECHO=报名→真实sleep SLEEP秒→回ECHO=<店>|slept
+    fn sleep_turn(&self, shop: &str, all_letters: &[Letter]) -> Result<(), String> {
+        let sleep_secs: u64 = all_letters.iter()
+            .filter_map(|l| {
+                let b = &l.body;
+                let i = b.find("SLEEP=")?;
+                let rest = &b[i + 6..];
+                let digits: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
+                digits.parse::<u64>().ok()
+            })
+            .next()
+            .unwrap_or(0);
+        let trigger = all_letters.last().map(|l| l.body.clone()).unwrap_or_default();
+        if trigger.starts_with("TASK=") {
+            // chief 点火: 向除自己外的全部店广播(报文必须含字面量 SLEEP=<秒>, 回声店靠它解析)
+            let targets: Vec<String> = self.shops.keys()
+                .filter(|s| **s != shop && *s != "orchestrator" && *s != "watchdog")
+                .cloned().collect();
+            let msg = format!("ECHO=报名||任务: SLEEP={sleep_secs} (真实睡眠该秒数) 后回 ECHO=你的店名|slept");
+            let _ = self.broadcast(shop, &targets, &msg, false, false);
+            Ok(())
+        } else if trigger.starts_with("ECHO=报名") {
+            // 回声店: 收到广播 → 真实睡眠(各店调度并发, 总墙钟≈单段时长) → 回声给发起者
+            std::thread::sleep(std::time::Duration::from_secs(sleep_secs));
+            let chief = all_letters.iter().rev()
+                .find(|l| l.to == shop && l.body.starts_with("ECHO=报名"))
+                .map(|l| l.from.clone())
+                .unwrap_or_else(|| "chief".to_string());
+            let _ = self.send(shop, &chief, &format!("ECHO={shop}|slept={sleep_secs}s"), false, false);
+            Ok(())
+        } else if trigger.starts_with("ARBIT=") {
+            // 收尾
+            let _ = self.send(shop, shop, "REPORT=COUNT=done||全部回声已收齐(睡眠基准)", true, false);
+            Ok(())
+        } else {
+            Ok(()) // 收到他人回声等无关信: 不动作(chief 防误入睡眠分支)
+        }
     }
 
     /// codex 回合(单信版): 兼容旧路径
