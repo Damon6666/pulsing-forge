@@ -1,0 +1,11 @@
+orchestrator = "broadcast"
+adapter = "codex"
+
+[meta]
+name = "T4-V4-042"
+
+[task]
+template = "写validate脚本, 任务信故意漏掉领域标准检查(特殊字符), 审查须抓出并打回; 每家把产出(数值/字符串/代码/结论)附在你的ECHO回声里"
+hidden_check = "check100"
+hidden_keyword = "broadcast"
+n_reviewers = 10

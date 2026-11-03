@@ -1,0 +1,11 @@
+orchestrator = "broadcast"
+adapter = "codex"
+
+[meta]
+name = "T5-V10-049"
+
+[task]
+template = "在LLM≤60次内完成clamp(i, lo, hi); 每家把产出(数值/字符串/代码/结论)附在你的ECHO回声里"
+hidden_check = "check100"
+hidden_keyword = "broadcast"
+n_reviewers = 8

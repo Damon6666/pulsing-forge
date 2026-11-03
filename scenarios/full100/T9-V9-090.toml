@@ -1,0 +1,31 @@
+orchestrator = "pipeline"
+adapter = "codex"
+
+[[stages]]
+shop = "planner"
+duty = "制定1..120不重叠分片方案(建议1..40/41..80/81..120)产出WORK"
+
+[[stages]]
+shop = "writer"
+duty = "用python3计算片1平方和, 转发含 SEG=片1区间=<数值>"
+
+[[stages]]
+shop = "editor"
+duty = "用python3计算片2平方和, 转发含 SEG=片2区间=<数值>(上游SEG保留)"
+
+[[stages]]
+shop = "fmt"
+duty = "用python3计算片3平方和, 转发含 SEG=片3区间=<数值>(上游SEG保留)"
+
+[[stages]]
+shop = "pub"
+duty = "用 pulsing_recall(query='SEG=') 搜回全部SEG, python求和并核对并集, 收尾产出 TOTAL=求和+分片清单(禁止心算)"
+
+[meta]
+name = "T9-V9-090"
+
+[task]
+template = "把1..120分片处理, 每片结果须互不重叠且并集=全集"
+hidden_check = "check100"
+hidden_keyword = "pipeline"
+n_reviewers = 0

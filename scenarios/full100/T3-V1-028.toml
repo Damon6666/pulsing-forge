@@ -1,0 +1,31 @@
+orchestrator = "pipeline"
+adapter = "codex"
+
+[[stages]]
+shop = "planner"
+duty = "用python3计算1..60平方和, 产出WORK须含一行 SEG=1..60=<数值>"
+
+[[stages]]
+shop = "writer"
+duty = "用python3计算61..120平方和, 转发须含 SEG=61..120=<数值>(上游SEG保留)"
+
+[[stages]]
+shop = "editor"
+duty = "用python3独立复算1..60与61..120两段, 转发含 SEG=1..60=<复算值> 与 SEG=61..120=<复算值>"
+
+[[stages]]
+shop = "fmt"
+duty = "原样保留全部SEG行转发"
+
+[[stages]]
+shop = "pub"
+duty = "用 pulsing_recall(query='SEG=') 搜回账本全部SEG标记, 用python3求和核对, 收尾REPORT出 TOTAL=求和结果(禁止心算)"
+
+[meta]
+name = "T3-V1-028"
+
+[task]
+template = "计算整数1..120的平方和, 分工自定, 最终REPORT=TOTAL=数值"
+hidden_check = "check100"
+hidden_keyword = "pipeline"
+n_reviewers = 0

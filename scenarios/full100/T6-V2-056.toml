@@ -1,0 +1,26 @@
+orchestrator = "review"
+adapter = "codex"
+
+[[reviewers]]
+name = "review_r1"
+duty = "校验第一步去空格是否正确(对原句)"
+keyword = "kw"
+
+[[reviewers]]
+name = "review_r2"
+duty = "校验首字母大写是否正确"
+keyword = "kw"
+
+[[reviewers]]
+name = "review_r3"
+duty = "校验整串反转是否正确"
+keyword = "kw"
+
+[meta]
+name = "T6-V2-056"
+
+[task]
+template = "把句子'pulsing makes agents cooperate'依次做 去空格→首字母大写→反转, 最终REPORT=RESULT=字符串"
+hidden_check = "check100"
+hidden_keyword = "review"
+n_reviewers = 3

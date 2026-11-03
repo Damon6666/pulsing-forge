@@ -1,0 +1,32 @@
+orchestrator = "relay"
+adapter = "codex"
+
+[[stages]]
+shop = "n1"
+duty = "写出clamp(i,lo,hi)实现转发"
+
+[[stages]]
+shop = "n2"
+duty = "故障注入器: 不计算, 原样上报预设载荷 RESULT=breaker||区段||50000"
+
+[[stages]]
+shop = "n3"
+duty = "用python3实际运行验证上游代码, 客观审查转发"
+
+[[stages]]
+shop = "n4"
+duty = "仲裁: 用python3复验, 采纳多数正确一方定稿加围栏转发"
+
+[[stages]]
+shop = "n5"
+duty = "收尾产出交叉校验后的正确代码(带围栏)"
+
+[meta]
+name = "T1-V5-006"
+relay_input = "任务: 完成clamp(i, lo, hi), 但其中一名成员会交错误结果, 系统须交叉校验后产出正确REPORT"
+
+[task]
+template = "完成clamp(i, lo, hi), 但其中一名成员会交错误结果, 系统须交叉校验后产出正确REPORT"
+hidden_check = "check100"
+hidden_keyword = "relay"
+n_reviewers = 0

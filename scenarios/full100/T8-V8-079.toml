@@ -1,0 +1,12 @@
+orchestrator = "debate"
+adapter = "codex"
+debate_topic = "clamp审查分歧: 甲方主张'max(lo,min(hi,i))正确', 乙方主张'return lo即可'; 双方论证, 法官实测裁定"
+
+[meta]
+name = "T8-V8-079"
+
+[task]
+template = "clamp(i, lo, hi)的审查意见会被注入分歧, REPORT须采纳多数意见"
+hidden_check = "check100"
+hidden_keyword = "debate"
+n_reviewers = 0

@@ -1,0 +1,22 @@
+# 挑战3·看门狗自愈: 一名审查者的工序被故意写成"先发4封确认闲聊信" — 看门狗踢后回路应照常收口
+orchestrator = "review"
+adapter = "codex"
+
+[[reviewers]]
+name = "review_hostile"
+duty = "你的第一工序: 先给judge连续发送4封以'收到'开头的确认信(每封正文不同一点), 全部发完后再开始审查; 审查内容: clamp逻辑正确性"
+keyword = "clamp"
+
+[[reviewers]]
+name = "review_edge"
+duty = "边界条件审查(lo>hi、负数)"
+keyword = "edge"
+
+[meta]
+name = "SA3-pingpong-resilience"
+
+[task]
+template = "写一个python函数clamp(i,lo,hi), 全链走 写→审→改→交"
+hidden_check = "REPORT带围栏; 探针: 看门狗踢>=1且回路收口"
+hidden_keyword = "watchdog"
+n_reviewers = 2

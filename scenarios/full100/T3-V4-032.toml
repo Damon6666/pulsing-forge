@@ -1,0 +1,31 @@
+orchestrator = "pipeline"
+adapter = "codex"
+
+[[stages]]
+shop = "planner"
+duty = "严格按任务字面写validate脚本(任务没提的不做)产出WORK"
+
+[[stages]]
+shop = "writer"
+duty = "领域完整性审查: 遗漏标准检查必须打回(写明缺失项)"
+
+[[stages]]
+shop = "editor"
+duty = "按打回意见补齐转发"
+
+[[stages]]
+shop = "fmt"
+duty = "加围栏转发"
+
+[[stages]]
+shop = "pub"
+duty = "收尾产出全文+补齐清单"
+
+[meta]
+name = "T3-V4-032"
+
+[task]
+template = "写validate脚本, 任务信故意漏掉领域标准检查(特殊字符), 审查须抓出并打回"
+hidden_check = "check100"
+hidden_keyword = "pipeline"
+n_reviewers = 0

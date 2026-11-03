@@ -1,0 +1,32 @@
+orchestrator = "relay"
+adapter = "codex"
+
+[[stages]]
+shop = "n1"
+duty = "用python3计算1..24平方和, 转发正文必须含一行标记 SEG=1..24=<你的数值>"
+
+[[stages]]
+shop = "n2"
+duty = "用python3计算25..48平方和, 转发正文必须含一行标记 SEG=25..48=<你的数值>(上游SEG行原样保留)"
+
+[[stages]]
+shop = "n3"
+duty = "用python3计算49..72平方和, 转发正文必须含一行标记 SEG=49..72=<你的数值>(上游SEG行原样保留)"
+
+[[stages]]
+shop = "n4"
+duty = "用python3计算73..96平方和, 转发正文必须含一行标记 SEG=73..96=<你的数值>(上游SEG行原样保留)"
+
+[[stages]]
+shop = "n5"
+duty = "用python3计算97..120平方和, 先发 SEG=97..120=<数值> 给n5自己留账; 然后用 pulsing_recall(query='SEG=') 搜索账本全部5段SEG标记, 用python3把5个数值求和, 收尾产出 TOTAL=求和结果+分段清单(禁止心算)"
+
+[meta]
+name = "T1-V1-001"
+relay_input = "任务: 计算整数1..120的平方和, 分工自定, 最终REPORT=TOTAL=数值"
+
+[task]
+template = "计算整数1..120的平方和, 分工自定, 最终REPORT=TOTAL=数值"
+hidden_check = "check100"
+hidden_keyword = "relay"
+n_reviewers = 0

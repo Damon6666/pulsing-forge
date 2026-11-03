@@ -1,0 +1,32 @@
+orchestrator = "relay"
+adapter = "codex"
+
+[[stages]]
+shop = "n1"
+duty = "写出clamp(i,lo,hi)初稿转发"
+
+[[stages]]
+shop = "n2"
+duty = "审查上游找bug并附意见转发"
+
+[[stages]]
+shop = "n3"
+duty = "按审查意见修复定稿转发"
+
+[[stages]]
+shop = "n4"
+duty = "加```python围栏格式化转发"
+
+[[stages]]
+shop = "n5"
+duty = "收尾产出带围栏的最终代码全文"
+
+[meta]
+name = "T1-V3-004"
+relay_input = "任务: 写一个python函数clamp(i, lo, hi), 全链走 写→审→改→交"
+
+[task]
+template = "写一个python函数clamp(i, lo, hi), 全链走 写→审→改→交"
+hidden_check = "check100"
+hidden_keyword = "relay"
+n_reviewers = 0

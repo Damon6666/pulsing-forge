@@ -1,0 +1,32 @@
+orchestrator = "relay"
+adapter = "codex"
+
+[[stages]]
+shop = "n1"
+duty = "去除文本所有空格转发"
+
+[[stages]]
+shop = "n2"
+duty = "首字母大写转发"
+
+[[stages]]
+shop = "n3"
+duty = "整串反转转发"
+
+[[stages]]
+shop = "n4"
+duty = "逐字符校对无误后原样转发"
+
+[[stages]]
+shop = "n5"
+duty = "收尾产出 RESULT=最终字符串(逐字符复制上游, 禁止改动)"
+
+[meta]
+name = "T1-V2-003"
+relay_input = "pulsing makes agents cooperate"
+
+[task]
+template = "把句子'pulsing makes agents cooperate'依次做 去空格→首字母大写→反转, 最终REPORT=RESULT=字符串"
+hidden_check = "check100"
+hidden_keyword = "relay"
+n_reviewers = 0

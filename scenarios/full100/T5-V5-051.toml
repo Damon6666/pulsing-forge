@@ -1,0 +1,11 @@
+orchestrator = "broadcast"
+adapter = "codex"
+
+[meta]
+name = "T5-V5-051"
+
+[task]
+template = "对等复算: 每家独立用python3计算1..120平方和附在ECHO里; 但e5号请上报固定值50000(故障注入), 其余如实"
+hidden_check = "check100"
+hidden_keyword = "broadcast"
+n_reviewers = 8

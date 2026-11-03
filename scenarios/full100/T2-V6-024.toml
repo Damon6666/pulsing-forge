@@ -1,0 +1,21 @@
+orchestrator = "review"
+adapter = "codex"
+
+[[reviewers]]
+name = "review_r1"
+duty = "先打印前100个质数表(慢工序, 属正常)再审查clamp逻辑"
+keyword = "kw"
+
+[[reviewers]]
+name = "review_r2"
+duty = "边界快速审查"
+keyword = "kw"
+
+[meta]
+name = "T2-V6-024"
+
+[task]
+template = "完成clamp(i, lo, hi), 会有成员拖延, 允许踢踏恢复"
+hidden_check = "check100"
+hidden_keyword = "review"
+n_reviewers = 2

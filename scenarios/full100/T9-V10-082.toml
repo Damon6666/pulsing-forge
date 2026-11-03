@@ -1,0 +1,23 @@
+orchestrator = "pipeline"
+adapter = "codex"
+
+[[stages]]
+shop = "planner"
+duty = "用python3完成任务产出WORK"
+
+[[stages]]
+shop = "writer"
+duty = "核验转发"
+
+[[stages]]
+shop = "pub"
+duty = "收尾产出结果全文"
+
+[meta]
+name = "T9-V10-082"
+
+[task]
+template = "在LLM≤60次内完成clamp(i, lo, hi)"
+hidden_check = "check100"
+hidden_keyword = "pipeline"
+n_reviewers = 0

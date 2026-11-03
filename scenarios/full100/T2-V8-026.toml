@@ -1,0 +1,26 @@
+orchestrator = "review"
+adapter = "codex"
+
+[[reviewers]]
+name = "review_r1"
+duty = "甲方立场: 审查max(lo,min(hi,i))实现并论证其正确"
+keyword = "kw"
+
+[[reviewers]]
+name = "review_r2"
+duty = "乙方立场: 主张return lo更简单可用并论证"
+keyword = "kw"
+
+[[reviewers]]
+name = "review_r3"
+duty = "中立实测: 用python3跑边界用例给出客观数据"
+keyword = "kw"
+
+[meta]
+name = "T2-V8-026"
+
+[task]
+template = "clamp(i, lo, hi)的审查意见会被注入分歧, REPORT须采纳多数意见"
+hidden_check = "check100"
+hidden_keyword = "review"
+n_reviewers = 3

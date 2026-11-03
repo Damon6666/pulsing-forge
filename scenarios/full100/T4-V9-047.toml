@@ -1,0 +1,11 @@
+orchestrator = "broadcast"
+adapter = "codex"
+
+[meta]
+name = "T4-V9-047"
+
+[task]
+template = "分片核算: 店e_k计算区间[(k-1)*12+1, k*12]的平方和附在ECHO里; 各区间须互不重叠且并集=1..120"
+hidden_check = "check100"
+hidden_keyword = "broadcast"
+n_reviewers = 10

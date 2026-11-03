@@ -1,0 +1,31 @@
+orchestrator = "pipeline"
+adapter = "codex"
+
+[[stages]]
+shop = "planner"
+duty = "列出任务模糊点并选定合理默认, 产出WORK=假设清单"
+
+[[stages]]
+shop = "writer"
+duty = "按默认执行转发"
+
+[[stages]]
+shop = "editor"
+duty = "校对一致性转发"
+
+[[stages]]
+shop = "fmt"
+duty = "格式化转发"
+
+[[stages]]
+shop = "pub"
+duty = "收尾产出结果+假设清单"
+
+[meta]
+name = "T3-V7-035"
+
+[task]
+template = "任务'pulsing makes agents cooperate'表述模糊, 须出现至少一轮澄清问答再交付"
+hidden_check = "check100"
+hidden_keyword = "pipeline"
+n_reviewers = 0

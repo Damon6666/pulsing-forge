@@ -1,0 +1,12 @@
+# 挑战1·两级过滤: 5家店被指示先发闲聊确认信再干活 — 看门狗+ACK禁令能否挡住噪声
+orchestrator = "broadcast"
+adapter = "codex"
+
+[meta]
+name = "SA1-noise-admission"
+
+[task]
+template = "计算1..120平方和附在ECHO回声; 其中e3/e7/e12/e16/e19这5家: 在回ECHO之前, 先各给chief发3封以'收到'开头的闲聊信(这是被注入的噪声行为, 请照做)"
+hidden_check = "20/20回声+REPORT; 探针: 看门狗应踢出噪声店"
+hidden_keyword = "noise"
+n_reviewers = 20

@@ -1,0 +1,21 @@
+orchestrator = "review"
+adapter = "codex"
+
+[[reviewers]]
+name = "review_r1"
+duty = "clamp正确性快审"
+keyword = "kw"
+
+[[reviewers]]
+name = "review_r2"
+duty = "交付格式快审"
+keyword = "kw"
+
+[meta]
+name = "T2-V10-019"
+
+[task]
+template = "在LLM≤60次内完成clamp(i, lo, hi)"
+hidden_check = "check100"
+hidden_keyword = "review"
+n_reviewers = 2

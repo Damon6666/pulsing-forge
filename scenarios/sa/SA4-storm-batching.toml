@@ -1,0 +1,12 @@
+# 挑战4·Router批处理: 30家每家回两封(准备+结果)=60封信扇入, 去抖攒批后chief应一次收口
+orchestrator = "broadcast"
+adapter = "codex"
+
+[meta]
+name = "SA4-storm-batching"
+
+[task]
+template = "每家店先立即回一封 ECHO=你的店名|准备中, 然后用python3计算整数1..120平方和, 算完再回第二封 ECHO=你的店名|数值结果"
+hidden_check = "30/30店至少一封回声+REPORT; 探针: chief回合数应远小于60"
+hidden_keyword = "storm"
+n_reviewers = 30

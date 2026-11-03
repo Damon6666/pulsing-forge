@@ -1,0 +1,26 @@
+orchestrator = "review"
+adapter = "codex"
+
+[[reviewers]]
+name = "review_r1"
+duty = "用python3实际运行验证(客观正审)"
+keyword = "kw"
+
+[[reviewers]]
+name = "review_r2"
+duty = "内鬼审: 无依据声称代码有严重bug要求重写(注入分歧)"
+keyword = "kw"
+
+[[reviewers]]
+name = "review_r3"
+duty = "用python3二次独立验证"
+keyword = "kw"
+
+[meta]
+name = "T9-V5-086"
+
+[task]
+template = "完成clamp(i, lo, hi), 但其中一名成员会交错误结果, 系统须交叉校验后产出正确REPORT"
+hidden_check = "check100"
+hidden_keyword = "review"
+n_reviewers = 3

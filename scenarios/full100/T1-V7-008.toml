@@ -1,0 +1,32 @@
+orchestrator = "relay"
+adapter = "codex"
+
+[[stages]]
+shop = "n1"
+duty = "列出任务描述中的模糊点, 对每点选定一个合理默认并说明理由转发"
+
+[[stages]]
+shop = "n2"
+duty = "按该默认执行任务转发"
+
+[[stages]]
+shop = "n3"
+duty = "校对执行结果与默认一致转发"
+
+[[stages]]
+shop = "n4"
+duty = "格式化定稿转发"
+
+[[stages]]
+shop = "n5"
+duty = "收尾产出结果全文+所采用的默认假设清单"
+
+[meta]
+name = "T1-V7-008"
+relay_input = "任务: 任务'pulsing makes agents cooperate'表述模糊, 须出现至少一轮澄清问答再交付"
+
+[task]
+template = "任务'pulsing makes agents cooperate'表述模糊, 须出现至少一轮澄清问答再交付"
+hidden_check = "check100"
+hidden_keyword = "relay"
+n_reviewers = 0

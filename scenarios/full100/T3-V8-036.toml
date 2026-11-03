@@ -1,0 +1,31 @@
+orchestrator = "pipeline"
+adapter = "codex"
+
+[[stages]]
+shop = "planner"
+duty = "按甲方意见(max/min)产出v1 WORK"
+
+[[stages]]
+shop = "writer"
+duty = "乙方反对意见附上转发"
+
+[[stages]]
+shop = "editor"
+duty = "用python3实测裁定转发"
+
+[[stages]]
+shop = "fmt"
+duty = "定稿加围栏转发"
+
+[[stages]]
+shop = "pub"
+duty = "收尾产出采纳结论+全文"
+
+[meta]
+name = "T3-V8-036"
+
+[task]
+template = "clamp(i, lo, hi)的审查意见会被注入分歧, REPORT须采纳多数意见"
+hidden_check = "check100"
+hidden_keyword = "pipeline"
+n_reviewers = 0

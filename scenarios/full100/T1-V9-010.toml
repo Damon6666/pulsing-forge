@@ -1,0 +1,32 @@
+orchestrator = "relay"
+adapter = "codex"
+
+[[stages]]
+shop = "n1"
+duty = "制定1..120分片方案(建议1..24/25..48/49..72/73..96/97..120): 互不重叠且并集=全集, 清单转发"
+
+[[stages]]
+shop = "n2"
+duty = "用python3计算片1平方和, 转发含 SEG=片1区间=<数值>"
+
+[[stages]]
+shop = "n3"
+duty = "用python3计算片2平方和, 转发含 SEG=片2区间=<数值>(上游SEG保留)"
+
+[[stages]]
+shop = "n4"
+duty = "用python3计算片3平方和, 转发含 SEG=片3区间=<数值>(上游SEG保留)"
+
+[[stages]]
+shop = "n5"
+duty = "校验分片不重叠并集=全集; 用 pulsing_recall(query='SEG=') 搜回账本全部分段, python求和(含你算的剩余段), 收尾产出 TOTAL=求和+分片清单(禁止心算)"
+
+[meta]
+name = "T1-V9-010"
+relay_input = "任务: 把1..120分片处理, 每片结果须互不重叠且并集=全集"
+
+[task]
+template = "把1..120分片处理, 每片结果须互不重叠且并集=全集"
+hidden_check = "check100"
+hidden_keyword = "relay"
+n_reviewers = 0

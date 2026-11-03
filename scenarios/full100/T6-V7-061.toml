@@ -1,0 +1,21 @@
+orchestrator = "review"
+adapter = "codex"
+
+[[reviewers]]
+name = "review_r1"
+duty = "检查writer采用的默认假设是否合理且已说明"
+keyword = "kw"
+
+[[reviewers]]
+name = "review_r2"
+duty = "结果与假设一致性审查"
+keyword = "kw"
+
+[meta]
+name = "T6-V7-061"
+
+[task]
+template = "任务'pulsing makes agents cooperate'表述模糊, 须出现至少一轮澄清问答再交付"
+hidden_check = "check100"
+hidden_keyword = "review"
+n_reviewers = 2

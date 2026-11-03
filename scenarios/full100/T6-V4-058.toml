@@ -1,0 +1,21 @@
+orchestrator = "review"
+adapter = "codex"
+
+[[reviewers]]
+name = "review_r1"
+duty = "领域标准完整性: 检查是否遗漏特殊字符/空值等标准检查(本题关键, 缺失必须NEEDS_FIX)"
+keyword = "kw"
+
+[[reviewers]]
+name = "review_r2"
+duty = "脚本逻辑常规审查"
+keyword = "kw"
+
+[meta]
+name = "T6-V4-058"
+
+[task]
+template = "写validate脚本, 任务信故意漏掉领域标准检查(特殊字符), 审查须抓出并打回"
+hidden_check = "check100"
+hidden_keyword = "review"
+n_reviewers = 2

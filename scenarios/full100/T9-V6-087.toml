@@ -1,0 +1,31 @@
+orchestrator = "pipeline"
+adapter = "codex"
+
+[[stages]]
+shop = "planner"
+duty = "写clamp初稿产出WORK"
+
+[[stages]]
+shop = "writer"
+duty = "先打印前100质数表(慢, 属正常)再审查转发"
+
+[[stages]]
+shop = "editor"
+duty = "修复转发"
+
+[[stages]]
+shop = "fmt"
+duty = "加围栏转发"
+
+[[stages]]
+shop = "pub"
+duty = "收尾产出全文"
+
+[meta]
+name = "T9-V6-087"
+
+[task]
+template = "完成clamp(i, lo, hi), 会有成员拖延, 允许踢踏恢复"
+hidden_check = "check100"
+hidden_keyword = "pipeline"
+n_reviewers = 0

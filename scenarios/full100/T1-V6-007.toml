@@ -1,0 +1,32 @@
+orchestrator = "relay"
+adapter = "codex"
+
+[[stages]]
+shop = "n1"
+duty = "写出clamp(i,lo,hi)初稿转发"
+
+[[stages]]
+shop = "n2"
+duty = "先用python3打印前100个质数表(本工序慢, 属正常), 然后审查上游转发"
+
+[[stages]]
+shop = "n3"
+duty = "按意见修复转发"
+
+[[stages]]
+shop = "n4"
+duty = "加围栏转发"
+
+[[stages]]
+shop = "n5"
+duty = "收尾产出带围栏全文"
+
+[meta]
+name = "T1-V6-007"
+relay_input = "任务: 完成clamp(i, lo, hi), 会有成员拖延, 允许踢踏恢复"
+
+[task]
+template = "完成clamp(i, lo, hi), 会有成员拖延, 允许踢踏恢复"
+hidden_check = "check100"
+hidden_keyword = "relay"
+n_reviewers = 0

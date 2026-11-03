@@ -1,0 +1,44 @@
+# 挑战2·链式召回: 密令只在信#2(第一跳转发信)里, 终站信箱窗口已看不到 — 必须pulsing_recall
+orchestrator = "relay"
+adapter = "codex"
+[[stages]]
+shop = "n1"
+duty = "把上游信件原文(含密令行)原样转发给下游, 并在末尾附加一句话说明你完成了第一跳"
+
+[[stages]]
+shop = "n2"
+duty = "把上游信件的'正文:'后面的内容做去空格处理转发(密令行不要包含在转发内容里)"
+
+[[stages]]
+shop = "n3"
+duty = "对上游文本首字母大写转发, 末尾附50字工序说明"
+
+[[stages]]
+shop = "n4"
+duty = "对上游文本整串反转转发, 末尾附50字工序说明"
+
+[[stages]]
+shop = "n5"
+duty = "对上游文本逐字符校对后转发, 末尾附50字校对报告"
+
+[[stages]]
+shop = "n6"
+duty = "把上游文本压缩为前30字符转发, 末尾附50字说明"
+
+[[stages]]
+shop = "n7"
+duty = "对上游文本做字符统计(各字符出现次数)转发统计结果"
+
+[[stages]]
+shop = "n8"
+duty = "收尾REPORT=RESULT=上游统计结果||SECRET=账本中最初的密令值(用 pulsing_recall(query=\"密令\") 搜索账本找到含密令的信, 再按其序号取全文提取 FORGE 开头的密令)"
+
+[meta]
+name = "SA2-recall-chain"
+relay_input = "密令=FORGE-7749; 正文: pulsing makes agents cooperate"
+
+[task]
+template = "多跳文本变换后, 从账本召回最初的密令"
+hidden_check = "REPORT含FORGE-7749; 探针: recall调用>=1"
+hidden_keyword = "recall"
+n_reviewers = 0

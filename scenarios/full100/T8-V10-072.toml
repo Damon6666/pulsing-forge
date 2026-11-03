@@ -1,0 +1,12 @@
+orchestrator = "debate"
+adapter = "codex"
+debate_topic = "在LLM≤60次内完成clamp(i, lo, hi)"
+
+[meta]
+name = "T8-V10-072"
+
+[task]
+template = "在LLM≤60次内完成clamp(i, lo, hi)"
+hidden_check = "check100"
+hidden_keyword = "debate"
+n_reviewers = 0

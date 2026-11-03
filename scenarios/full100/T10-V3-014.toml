@@ -1,0 +1,11 @@
+orchestrator = "broadcast"
+adapter = "codex"
+
+[meta]
+name = "T10-V3-014"
+
+[task]
+template = "写一个python函数clamp(i, lo, hi), 全链走 写→审→改→交; 每家把产出(数值/字符串/代码/结论)附在你的ECHO回声里"
+hidden_check = "check100"
+hidden_keyword = "broadcast"
+n_reviewers = 30

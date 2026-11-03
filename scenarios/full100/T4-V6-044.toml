@@ -1,0 +1,11 @@
+orchestrator = "broadcast"
+adapter = "codex"
+
+[meta]
+name = "T4-V6-044"
+
+[task]
+template = "完成clamp(i, lo, hi), 会有成员拖延, 允许踢踏恢复; 其中e5号请先从1数到30再回声(模拟掉队), 其余立即完成并附ECHO"
+hidden_check = "check100"
+hidden_keyword = "broadcast"
+n_reviewers = 10

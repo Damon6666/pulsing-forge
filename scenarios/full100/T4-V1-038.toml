@@ -1,0 +1,11 @@
+orchestrator = "broadcast"
+adapter = "codex"
+
+[meta]
+name = "T4-V1-038"
+
+[task]
+template = "映射归约: 店e_k用python3计算区间[(k-1)*12+1, k*12]的平方和, 把精确数值附在ECHO回声里(k=你的编号)"
+hidden_check = "check100"
+hidden_keyword = "broadcast"
+n_reviewers = 10

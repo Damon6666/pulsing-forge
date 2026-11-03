@@ -1,0 +1,31 @@
+orchestrator = "pipeline"
+adapter = "codex"
+
+[[stages]]
+shop = "planner"
+duty = "写clamp初稿产出WORK"
+
+[[stages]]
+shop = "writer"
+duty = "审查附意见转发"
+
+[[stages]]
+shop = "editor"
+duty = "按意见修复转发"
+
+[[stages]]
+shop = "fmt"
+duty = "加```python围栏转发"
+
+[[stages]]
+shop = "pub"
+duty = "收尾REPORT出带围栏全文"
+
+[meta]
+name = "T9-V3-084"
+
+[task]
+template = "写一个python函数clamp(i, lo, hi), 全链走 写→审→改→交"
+hidden_check = "check100"
+hidden_keyword = "pipeline"
+n_reviewers = 0

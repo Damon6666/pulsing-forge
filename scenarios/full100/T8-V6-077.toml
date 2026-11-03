@@ -1,0 +1,12 @@
+orchestrator = "debate"
+adapter = "codex"
+debate_topic = "完成clamp(i, lo, hi), 会有成员拖延, 允许踢踏恢复"
+
+[meta]
+name = "T8-V6-077"
+
+[task]
+template = "完成clamp(i, lo, hi), 会有成员拖延, 允许踢踏恢复"
+hidden_check = "check100"
+hidden_keyword = "debate"
+n_reviewers = 0

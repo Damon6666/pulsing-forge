@@ -1,0 +1,32 @@
+orchestrator = "relay"
+adapter = "codex"
+
+[[stages]]
+shop = "n1"
+duty = "按甲方意见(用max(lo,min(hi,i))实现)产出v1转发"
+
+[[stages]]
+shop = "n2"
+duty = "乙方审查: 主张应改为直接return lo并给出理由转发"
+
+[[stages]]
+shop = "n3"
+duty = "用python3实测两组输入裁定哪方正确, 采纳正确方转发"
+
+[[stages]]
+shop = "n4"
+duty = "定稿加围栏转发"
+
+[[stages]]
+shop = "n5"
+duty = "收尾产出采纳结论+最终代码(带围栏)"
+
+[meta]
+name = "T1-V8-009"
+relay_input = "任务: clamp(i, lo, hi)的审查意见会被注入分歧, REPORT须采纳多数意见"
+
+[task]
+template = "clamp(i, lo, hi)的审查意见会被注入分歧, REPORT须采纳多数意见"
+hidden_check = "check100"
+hidden_keyword = "relay"
+n_reviewers = 0

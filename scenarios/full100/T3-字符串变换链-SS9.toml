@@ -1,0 +1,31 @@
+orchestrator = "pipeline"
+adapter = "codex"
+
+[[stages]]
+shop = "planner"
+duty = "对'pulsing makes agents cooperate'去空格产出WORK"
+
+[[stages]]
+shop = "writer"
+duty = "首字母大写转发"
+
+[[stages]]
+shop = "editor"
+duty = "整串反转转发"
+
+[[stages]]
+shop = "fmt"
+duty = "逐字符校对后格式化转发"
+
+[[stages]]
+shop = "pub"
+duty = "收尾REPORT出 RESULT=最终字符串"
+
+[meta]
+name = "T3-字符串变换链-SS9"
+
+[task]
+template = "计算整数1..120的平方和, 分工自定, 最终REPORT=TOTAL=数值"
+hidden_check = "check100"
+hidden_keyword = "pipeline"
+n_reviewers = 0

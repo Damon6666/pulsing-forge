@@ -1,0 +1,26 @@
+orchestrator = "review"
+adapter = "codex"
+
+[[reviewers]]
+name = "review_r1"
+duty = "clamp夹紧逻辑正确性"
+keyword = "kw"
+
+[[reviewers]]
+name = "review_r2"
+duty = "边界条件(lo>hi、负数)"
+keyword = "kw"
+
+[[reviewers]]
+name = "review_r3"
+duty = "围栏与交付格式"
+keyword = "kw"
+
+[meta]
+name = "T2-V3-021"
+
+[task]
+template = "写一个python函数clamp(i, lo, hi), 全链走 写→审→改→交"
+hidden_check = "check100"
+hidden_keyword = "review"
+n_reviewers = 3

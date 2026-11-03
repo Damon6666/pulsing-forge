@@ -1,0 +1,24 @@
+orchestrator = "relay"
+adapter = "codex"
+
+[[stages]]
+shop = "n1"
+duty = "用python3完成任务转发"
+
+[[stages]]
+shop = "n2"
+duty = "快速核验转发"
+
+[[stages]]
+shop = "n3"
+duty = "收尾产出结果(附关键产出全文)"
+
+[meta]
+name = "T1-V10-002"
+relay_input = "任务: 在LLM≤60次内完成clamp(i, lo, hi)"
+
+[task]
+template = "在LLM≤60次内完成clamp(i, lo, hi)"
+hidden_check = "check100"
+hidden_keyword = "relay"
+n_reviewers = 0

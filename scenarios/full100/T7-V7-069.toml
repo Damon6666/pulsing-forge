@@ -1,0 +1,12 @@
+orchestrator = "debate"
+adapter = "codex"
+debate_topic = "任务'pulsing makes agents cooperate'表述模糊, 须出现至少一轮澄清问答再交付"
+
+[meta]
+name = "T7-V7-069"
+
+[task]
+template = "任务'pulsing makes agents cooperate'表述模糊, 须出现至少一轮澄清问答再交付"
+hidden_check = "check100"
+hidden_keyword = "debate"
+n_reviewers = 0

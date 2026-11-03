@@ -1,0 +1,32 @@
+orchestrator = "relay"
+adapter = "codex"
+
+[[stages]]
+shop = "n1"
+duty = "严格按任务字面写validate脚本初稿(任务没提的一律不做)转发"
+
+[[stages]]
+shop = "n2"
+duty = "领域完整性审查: 检查是否遗漏领域标准检查(如特殊字符/空值/越界), 发现缺失必须打回并在信中写明缺失项"
+
+[[stages]]
+shop = "n3"
+duty = "按打回意见补齐缺失检查后转发"
+
+[[stages]]
+shop = "n4"
+duty = "加围栏定稿转发"
+
+[[stages]]
+shop = "n5"
+duty = "收尾产出带围栏全文+已补齐的检查清单"
+
+[meta]
+name = "T1-V4-005"
+relay_input = "任务: 写validate脚本, 任务信故意漏掉领域标准检查(特殊字符), 审查须抓出并打回"
+
+[task]
+template = "写validate脚本, 任务信故意漏掉领域标准检查(特殊字符), 审查须抓出并打回"
+hidden_check = "check100"
+hidden_keyword = "relay"
+n_reviewers = 0

@@ -1,0 +1,11 @@
+orchestrator = "broadcast"
+adapter = "codex"
+
+[meta]
+name = "T10-V9-017"
+
+[task]
+template = "把1..120分片处理, 每片结果须互不重叠且并集=全集; 每家把产出(数值/字符串/代码/结论)附在你的ECHO回声里"
+hidden_check = "check100"
+hidden_keyword = "broadcast"
+n_reviewers = 30
