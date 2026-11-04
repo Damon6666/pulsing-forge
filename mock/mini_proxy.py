@@ -9,8 +9,8 @@ v6: complete bidirectional MCP tool conversion.
 - z.ai tool_calls back: split flat name into (namespace, name) so codex
   router (ToolName::new(namespace,name)) dispatches to the MCP server
 """
-import json, os, sys, time, urllib.request, urllib.error
-from http.server import HTTPServer, BaseHTTPRequestHandler
+import json, os, sys, time, urllib.request, urllib.error, socketserver
+from http.server import BaseHTTPRequestHandler
 
 UPSTREAM = os.environ.get("MINI_UPSTREAM", "https://api.z.ai/api/paas/v4/chat/completions")
 
@@ -45,7 +45,10 @@ FLAT_MAP = {}
 def call_upstream(payload):
     body = json.dumps(payload).encode()
     last = None
-    for attempt in range(RETRIES):
+    # 429 = z.ai per-key concurrency limit: back off hard and retry
+    backoffs = [3, 6, 12, 20, 30, 45, 60, 60]
+    attempt = 0
+    while True:
         req = urllib.request.Request(UPSTREAM, data=body, headers={
             "Content-Type": "application/json",
             "Authorization": "Bearer " + API_KEY,
@@ -55,12 +58,21 @@ def call_upstream(payload):
             return json.loads(resp.read())
         except urllib.error.HTTPError as e:
             detail = e.read()[:300].decode(errors="replace")
+            if e.code == 429 and attempt < len(backoffs):
+                w = backoffs[attempt]
+                attempt += 1
+                print("429 backoff %ds (try %d)" % (w, attempt), file=sys.stderr, flush=True)
+                time.sleep(w)
+                continue
             raise RuntimeError("upstream HTTP %d: %s" % (e.code, detail))
         except Exception as e:
             last = e
-            print("RETRY %d after %s" % (attempt, e), file=sys.stderr, flush=True)
-            time.sleep(1 + attempt * 2)
-    raise RuntimeError("upstream failed after %d tries: %s" % (RETRIES, last))
+            if attempt < 3:
+                attempt += 1
+                print("RETRY %d after %s" % (attempt, e), file=sys.stderr, flush=True)
+                time.sleep(1 + attempt * 2)
+                continue
+            raise RuntimeError("upstream failed: %s" % last)
 
 
 def flat(ns, name):
@@ -253,13 +265,20 @@ class H(BaseHTTPRequestHandler):
         pass
 
 
-class TS(HTTPServer):
-    daemon_threads = True
+class TS(socketserver.ForkingTCPServer):
+    """v8: fork per connection + bounded children.
+
+    max_children caps concurrent upstream request streams, keeping us under
+    the z.ai per-key concurrency limit (429 code 1302) instead of tripping it.
+    Waiting codex clients queue at accept — waves of MINI_MAX_CONC streams.
+    """
+    allow_reuse_address = True
+    max_children = int(os.environ.get("MINI_MAX_CONC", "8"))
 
     def handle_error(self, *a):
         pass
 
 
 if __name__ == "__main__":
-    print("mini_proxy v6 :" + str(PORT) + " -> " + UPSTREAM, flush=True)
+    print("mini_proxy v8(fork,cap=%d) :%d -> %s" % (TS.max_children, PORT, UPSTREAM), flush=True)
     TS(("127.0.0.1", PORT), H).serve_forever()
