@@ -1,0 +1,11 @@
+orchestrator = "broadcast"
+adapter = "codex"
+
+[meta]
+name = "mock-sleep"
+
+[task]
+template = "Mock test: SLEEP=2"
+hidden_check = "3/3"
+hidden_keyword = "mock"
+n_reviewers = 3

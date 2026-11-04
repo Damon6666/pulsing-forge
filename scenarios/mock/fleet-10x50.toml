@@ -1,0 +1,11 @@
+orchestrator = "broadcast"
+adapter = "codex"
+
+[meta]
+name = "fleet-10x50"
+
+[task]
+template = "Fleet: SLEEP=21"
+hidden_check = "50/50"
+hidden_keyword = "f"
+n_reviewers = 50
