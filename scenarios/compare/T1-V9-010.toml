@@ -1,32 +1,32 @@
 orchestrator = "relay"
 adapter = "codex"
-relay_input = "任务: 把1..120分片处理"
+relay_input = "\u4efb\u52a1: \u628a1..120\u5206\u7247\u5904\u7406"
 
 [[stages]]
 shop = "n1"
-duty = "制定分片方案: 列出互不重叠且并集=1..120的分片清单转发"
+duty = "\u5236\u5b9a\u5206\u7247\u65b9\u6848: \u5217\u51fa\u4e92\u4e0d\u91cd\u53e0\u4e14\u5e76\u96c6=1..120\u7684\u5206\u7247\u6e05\u5355\u8f6c\u53d1"
 
 [[stages]]
 shop = "n2"
-duty = "用python3计算分片方案中第1片区间平方和, 连同方案转发"
+duty = "\u7528python3\u8ba1\u7b97\u5206\u7247\u65b9\u6848\u4e2d\u7b2c1\u7247\u533a\u95f4\u5e73\u65b9\u548c, \u8fde\u540c\u65b9\u6848\u8f6c\u53d1"
 
 [[stages]]
 shop = "n3"
-duty = "用python3计算第2片区间平方和, 与上游累计转发"
+duty = "\u7528python3\u8ba1\u7b97\u7b2c2\u7247\u533a\u95f4\u5e73\u65b9\u548c, \u4e0e\u4e0a\u6e38\u7d2f\u8ba1\u8f6c\u53d1"
 
 [[stages]]
 shop = "n4"
-duty = "用python3计算第3片区间平方和, 与上游累计转发"
+duty = "\u7528python3\u8ba1\u7b97\u7b2c3\u7247\u533a\u95f4\u5e73\u65b9\u548c, \u4e0e\u4e0a\u6e38\u7d2f\u8ba1\u8f6c\u53d1"
 
 [[stages]]
 shop = "n5"
-duty = "校验分片互不重叠且并集=全集; 用python3独立复算1..120全程平方和核对总和, 不一致以复算为准, 收尾产出 TOTAL=1..120总和+分片清单"
+duty = "\u6821\u9a8c\u5206\u7247\u4e92\u4e0d\u91cd\u53e0\u4e14\u5e76\u96c6=\u5168\u96c6; \u7528python3\u72ec\u7acb\u590d\u7b971..120\u5168\u7a0b\u5e73\u65b9\u548c\u6838\u5bf9\u603b\u548c, \u4e0d\u4e00\u81f4\u4ee5\u590d\u7b97\u4e3a\u51c6, \u6536\u5c3e\u4ea7\u51fa TOTAL=1..120\u603b\u548c+\u5206\u7247\u6e05\u5355"
 
 [meta]
 name = "T1-V9-010"
 
 [task]
-template = "把1..120分片处理, 每片互不重叠且并集=全集, 最终REPORT=TOTAL=总和+分片清单"
+template = "\u628a1..120\u5206\u7247\u5904\u7406, \u6bcf\u7247\u4e92\u4e0d\u91cd\u53e0\u4e14\u5e76\u96c6=\u5168\u96c6, \u6700\u7ec8REPORT=TOTAL=\u603b\u548c+\u5206\u7247\u6e05\u5355"
 hidden_check = "见 check_forge.py"
 hidden_keyword = "relay"
 n_reviewers = 0

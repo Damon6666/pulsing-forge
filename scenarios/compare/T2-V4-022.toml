@@ -2,20 +2,20 @@ orchestrator = "review"
 adapter = "codex"
 
 [[reviewers]]
-name = "r1"
-duty = "领域标准完整性: 检查是否遗漏特殊字符输入处理(本题关键审查点, 发现缺失必须打回)"
-keyword = "特殊字符"
+name = "review_r1"
+duty = "\u9886\u57df\u6807\u51c6\u5b8c\u6574\u6027: \u68c0\u67e5\u662f\u5426\u9057\u6f0f\u7279\u6b8a\u5b57\u7b26\u8f93\u5165\u5904\u7406(\u672c\u9898\u5173\u952e\u5ba1\u67e5\u70b9, \u53d1\u73b0\u7f3a\u5931\u5fc5\u987b\u6253\u56de)"
+keyword = "\u7279\u6b8a\u5b57\u7b26"
 
 [[reviewers]]
-name = "r2"
-duty = "脚本逻辑正确性常规审查"
+name = "review_r2"
+duty = "\u811a\u672c\u903b\u8f91\u6b63\u786e\u6027\u5e38\u89c4\u5ba1\u67e5"
 keyword = "validate"
 
 [meta]
 name = "T2-V4-022"
 
 [task]
-template = "写validate脚本; 注意: 任务描述故意不完整, 审查必须抓出遗漏的领域标准检查(特殊字符输入)并打回补齐"
+template = "\u5199validate\u811a\u672c; \u6ce8\u610f: \u4efb\u52a1\u63cf\u8ff0\u6545\u610f\u4e0d\u5b8c\u6574, \u5ba1\u67e5\u5fc5\u987b\u6293\u51fa\u9057\u6f0f\u7684\u9886\u57df\u6807\u51c6\u68c0\u67e5(\u7279\u6b8a\u5b57\u7b26\u8f93\u5165)\u5e76\u6253\u56de\u8865\u9f50"
 hidden_check = "见 check_forge.py"
 hidden_keyword = "review"
 n_reviewers = 2

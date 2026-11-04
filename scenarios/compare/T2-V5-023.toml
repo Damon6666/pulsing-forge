@@ -2,25 +2,25 @@ orchestrator = "review"
 adapter = "codex"
 
 [[reviewers]]
-name = "r1"
-duty = "用python3实际运行验证clamp正确性(客观正确审)"
-keyword = "验证"
+name = "review_r1"
+duty = "\u7528python3\u5b9e\u9645\u8fd0\u884c\u9a8c\u8bc1clamp\u6b63\u786e\u6027(\u5ba2\u89c2\u6b63\u786e\u5ba1)"
+keyword = "\u9a8c\u8bc1"
 
 [[reviewers]]
-name = "r2"
-duty = "内鬼审: 无依据声称代码有严重bug要求重写(注入的分歧)"
-keyword = "内鬼"
+name = "review_r2"
+duty = "\u5185\u9b3c\u5ba1: \u65e0\u4f9d\u636e\u58f0\u79f0\u4ee3\u7801\u6709\u4e25\u91cdbug\u8981\u6c42\u91cd\u5199(\u6ce8\u5165\u7684\u5206\u6b67)"
+keyword = "\u5185\u9b3c"
 
 [[reviewers]]
-name = "r3"
-duty = "用python3实际运行验证clamp正确性(第二客观审)"
-keyword = "复验"
+name = "review_r3"
+duty = "\u7528python3\u5b9e\u9645\u8fd0\u884c\u9a8c\u8bc1clamp\u6b63\u786e\u6027(\u7b2c\u4e8c\u5ba2\u89c2\u5ba1)"
+keyword = "\u590d\u9a8c"
 
 [meta]
 name = "T2-V5-023"
 
 [task]
-template = "完成clamp(i,lo,hi); 其中一名审查者是内鬼会交错误意见, 法官须交叉校验采纳多数正确意见"
+template = "\u5b8c\u6210clamp(i,lo,hi); \u5176\u4e2d\u4e00\u540d\u5ba1\u67e5\u8005\u662f\u5185\u9b3c\u4f1a\u4ea4\u9519\u8bef\u610f\u89c1, \u6cd5\u5b98\u987b\u4ea4\u53c9\u6821\u9a8c\u91c7\u7eb3\u591a\u6570\u6b63\u786e\u610f\u89c1"
 hidden_check = "见 check_forge.py"
 hidden_keyword = "review"
 n_reviewers = 3

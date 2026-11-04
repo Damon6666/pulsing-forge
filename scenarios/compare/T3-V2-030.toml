@@ -3,29 +3,29 @@ adapter = "codex"
 
 [[stages]]
 shop = "planner"
-duty = "对'pulsing makes agents cooperate'去空格, 产出WORK=结果"
+duty = "\u5bf9'pulsing makes agents cooperate'\u53bb\u7a7a\u683c, \u4ea7\u51faWORK=\u7ed3\u679c"
 
 [[stages]]
 shop = "writer"
-duty = "把上游文本首字母大写转发"
+duty = "\u628a\u4e0a\u6e38\u6587\u672c\u9996\u5b57\u6bcd\u5927\u5199\u8f6c\u53d1"
 
 [[stages]]
 shop = "editor"
-duty = "把上游文本整串反转转发"
+duty = "\u628a\u4e0a\u6e38\u6587\u672c\u6574\u4e32\u53cd\u8f6c\u8f6c\u53d1"
 
 [[stages]]
 shop = "fmt"
-duty = "逐字符校对无误后格式化转发"
+duty = "\u9010\u5b57\u7b26\u6821\u5bf9\u65e0\u8bef\u540e\u683c\u5f0f\u5316\u8f6c\u53d1"
 
 [[stages]]
 shop = "pub"
-duty = "收尾REPORT出 RESULT=最终字符串(逐字符复制上游结果, 禁止改动)"
+duty = "\u6536\u5c3eREPORT\u51fa RESULT=\u6700\u7ec8\u5b57\u7b26\u4e32(\u9010\u5b57\u7b26\u590d\u5236\u4e0a\u6e38\u7ed3\u679c, \u7981\u6b62\u6539\u52a8)"
 
 [meta]
 name = "T3-V2-030"
 
 [task]
-template = "把句子'pulsing makes agents cooperate'依次做 去空格→首字母大写→反转, 最终REPORT=RESULT=字符串"
+template = "\u628a\u53e5\u5b50'pulsing makes agents cooperate'\u4f9d\u6b21\u505a \u53bb\u7a7a\u683c\u2192\u9996\u5b57\u6bcd\u5927\u5199\u2192\u53cd\u8f6c, \u6700\u7ec8REPORT=RESULT=\u5b57\u7b26\u4e32"
 hidden_check = "见 check_forge.py"
 hidden_keyword = "pipeline"
 n_reviewers = 0

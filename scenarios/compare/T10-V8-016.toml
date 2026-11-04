@@ -5,7 +5,7 @@ adapter = "codex"
 name = "T10-V8-016"
 
 [task]
-template = "clamp审查分歧: 甲派意见'return lo即可', 乙派意见'应用max(lo,min(hi,i))'. 请按正确的乙派实现clamp附在ECHO里"
+template = "clamp\u5ba1\u67e5\u5206\u6b67: \u7532\u6d3e\u610f\u89c1'return lo\u5373\u53ef', \u4e59\u6d3e\u610f\u89c1'\u5e94\u7528max(lo,min(hi,i))'. \u8bf7\u6309\u6b63\u786e\u7684\u4e59\u6d3e\u5b9e\u73b0clamp\u9644\u5728ECHO\u91cc"
 hidden_check = "回声30/30+REPORT"
 hidden_keyword = "broadcast"
 n_reviewers = 30

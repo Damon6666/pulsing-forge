@@ -1,32 +1,32 @@
 orchestrator = "relay"
 adapter = "codex"
-relay_input = "任务: 完成clamp(i,lo,hi); 有成员会拖延"
+relay_input = "\u4efb\u52a1: \u5b8c\u6210clamp(i,lo,hi); \u6709\u6210\u5458\u4f1a\u62d6\u5ef6"
 
 [[stages]]
 shop = "n1"
-duty = "写出clamp(i,lo,hi)初稿转发"
+duty = "\u5199\u51faclamp(i,lo,hi)\u521d\u7a3f\u8f6c\u53d1"
 
 [[stages]]
 shop = "n2"
-duty = "先用python3打印前100个质数表(本工序较慢, 属正常), 然后审查上游代码转发"
+duty = "\u5148\u7528python3\u6253\u5370\u524d100\u4e2a\u8d28\u6570\u8868(\u672c\u5de5\u5e8f\u8f83\u6162, \u5c5e\u6b63\u5e38), \u7136\u540e\u5ba1\u67e5\u4e0a\u6e38\u4ee3\u7801\u8f6c\u53d1"
 
 [[stages]]
 shop = "n3"
-duty = "按审查意见修复clamp转发"
+duty = "\u6309\u5ba1\u67e5\u610f\u89c1\u4fee\u590dclamp\u8f6c\u53d1"
 
 [[stages]]
 shop = "n4"
-duty = "给最终代码加```python围栏转发"
+duty = "\u7ed9\u6700\u7ec8\u4ee3\u7801\u52a0```python\u56f4\u680f\u8f6c\u53d1"
 
 [[stages]]
 shop = "n5"
-duty = "收尾产出带围栏的最终clamp"
+duty = "\u6536\u5c3e\u4ea7\u51fa\u5e26\u56f4\u680f\u7684\u6700\u7ec8clamp"
 
 [meta]
 name = "T1-V6-007"
 
 [task]
-template = "完成clamp(i,lo,hi), 有成员拖延, 等其完成后REPORT带围栏"
+template = "\u5b8c\u6210clamp(i,lo,hi), \u6709\u6210\u5458\u62d6\u5ef6, \u7b49\u5176\u5b8c\u6210\u540eREPORT\u5e26\u56f4\u680f"
 hidden_check = "见 check_forge.py"
 hidden_keyword = "relay"
 n_reviewers = 0

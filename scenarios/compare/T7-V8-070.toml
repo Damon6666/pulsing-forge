@@ -1,12 +1,12 @@
 orchestrator = "debate"
 adapter = "codex"
-debate_topic = "clamp(i,lo,hi)实现之争: 甲方主张'return lo最简单', 乙方主张'应用max(lo,min(hi,i))才正确'. 双方各自论证, 法官裁定采纳正确一方"
+debate_topic = "clamp(i,lo,hi)\u5b9e\u73b0\u4e4b\u4e89: \u7532\u65b9\u4e3b\u5f20'return lo\u6700\u7b80\u5355', \u4e59\u65b9\u4e3b\u5f20'\u5e94\u7528max(lo,min(hi,i))\u624d\u6b63\u786e'. \u53cc\u65b9\u5404\u81ea\u8bba\u8bc1, \u6cd5\u5b98\u88c1\u5b9a\u91c7\u7eb3\u6b63\u786e\u4e00\u65b9"
 
 [meta]
 name = "T7-V8-070"
 
 [task]
-template = "clamp(i,lo,hi)实现之争: 甲方主张'return lo最简单', 乙方主张'应用max(lo,min(hi,i))才正确'. 双方各自论证, 法官裁定采纳正确一方。裁定必须写明采纳结论"
+template = "clamp(i,lo,hi)\u5b9e\u73b0\u4e4b\u4e89: \u7532\u65b9\u4e3b\u5f20'return lo\u6700\u7b80\u5355', \u4e59\u65b9\u4e3b\u5f20'\u5e94\u7528max(lo,min(hi,i))\u624d\u6b63\u786e'. \u53cc\u65b9\u5404\u81ea\u8bba\u8bc1, \u6cd5\u5b98\u88c1\u5b9a\u91c7\u7eb3\u6b63\u786e\u4e00\u65b9\u3002\u88c1\u5b9a\u5fc5\u987b\u5199\u660e\u91c7\u7eb3\u7ed3\u8bba"
 hidden_check = "见 check_forge.py"
 hidden_keyword = "debate"
 n_reviewers = 0

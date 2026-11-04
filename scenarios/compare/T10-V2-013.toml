@@ -5,7 +5,7 @@ adapter = "codex"
 name = "T10-V2-013"
 
 [task]
-template = "把句子'pulsing makes agents cooperate'依次做 去空格→首字母大写→反转, 把结果字符串附在你的ECHO回声里"
+template = "\u628a\u53e5\u5b50'pulsing makes agents cooperate'\u4f9d\u6b21\u505a \u53bb\u7a7a\u683c\u2192\u9996\u5b57\u6bcd\u5927\u5199\u2192\u53cd\u8f6c, \u628a\u7ed3\u679c\u5b57\u7b26\u4e32\u9644\u5728\u4f60\u7684ECHO\u56de\u58f0\u91cc"
 hidden_check = "回声30/30+REPORT"
 hidden_keyword = "broadcast"
 n_reviewers = 30

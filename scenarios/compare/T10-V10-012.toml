@@ -5,7 +5,7 @@ adapter = "codex"
 name = "T10-V10-012"
 
 [task]
-template = "预算受限: 每家店只许一次回合完成: 写出clamp(i,lo,hi)附在ECHO里"
+template = "\u9884\u7b97\u53d7\u9650: \u6bcf\u5bb6\u5e97\u53ea\u8bb8\u4e00\u6b21\u56de\u5408\u5b8c\u6210: \u5199\u51faclamp(i,lo,hi)\u9644\u5728ECHO\u91cc"
 hidden_check = "回声30/30+REPORT"
 hidden_keyword = "broadcast"
 n_reviewers = 30

@@ -2,25 +2,25 @@ orchestrator = "review"
 adapter = "codex"
 
 [[reviewers]]
-name = "r1"
-duty = "用python3计算1..40平方和作为分片1结果"
-keyword = "分片"
+name = "review_r1"
+duty = "\u7528python3\u8ba1\u7b971..40\u5e73\u65b9\u548c\u4f5c\u4e3a\u5206\u72471\u7ed3\u679c"
+keyword = "\u5206\u7247"
 
 [[reviewers]]
-name = "r2"
-duty = "用python3计算41..80平方和作为分片2结果"
-keyword = "分片"
+name = "review_r2"
+duty = "\u7528python3\u8ba1\u7b9741..80\u5e73\u65b9\u548c\u4f5c\u4e3a\u5206\u72472\u7ed3\u679c"
+keyword = "\u5206\u7247"
 
 [[reviewers]]
-name = "r3"
-duty = "用python3计算81..120平方和作为分片3结果"
-keyword = "分片"
+name = "review_r3"
+duty = "\u7528python3\u8ba1\u7b9781..120\u5e73\u65b9\u548c\u4f5c\u4e3a\u5206\u72473\u7ed3\u679c"
+keyword = "\u5206\u7247"
 
 [meta]
 name = "T2-V9-027"
 
 [task]
-template = "把1..120分片处理, 每片结果须互不重叠且并集=全集, 法官汇总产出TOTAL"
+template = "\u628a1..120\u5206\u7247\u5904\u7406, \u6bcf\u7247\u7ed3\u679c\u987b\u4e92\u4e0d\u91cd\u53e0\u4e14\u5e76\u96c6=\u5168\u96c6, \u6cd5\u5b98\u6c47\u603b\u4ea7\u51faTOTAL"
 hidden_check = "见 check_forge.py"
 hidden_keyword = "review"
 n_reviewers = 3

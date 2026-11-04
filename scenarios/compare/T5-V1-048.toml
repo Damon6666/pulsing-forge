@@ -5,7 +5,7 @@ adapter = "codex"
 name = "T5-V1-048"
 
 [task]
-template = "对等共识: 每家店用python3独立计算整数1..120的平方和, 把精确数值附在你的ECHO回声里"
+template = "\u5bf9\u7b49\u5171\u8bc6: \u6bcf\u5bb6\u5e97\u7528python3\u72ec\u7acb\u8ba1\u7b97\u6574\u65701..120\u7684\u5e73\u65b9\u548c, \u628a\u7cbe\u786e\u6570\u503c\u9644\u5728\u4f60\u7684ECHO\u56de\u58f0\u91cc"
 hidden_check = "回声8/8+REPORT"
 hidden_keyword = "broadcast"
 n_reviewers = 8

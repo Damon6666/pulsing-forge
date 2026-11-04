@@ -5,7 +5,7 @@ adapter = "codex"
 name = "T10-V6-015"
 
 [task]
-template = "写一个python函数clamp(i,lo,hi)附在ECHO里; 其中e17请先仔细从1数到30再回声(模拟掉队者)"
+template = "\u5199\u4e00\u4e2apython\u51fd\u6570clamp(i,lo,hi)\u9644\u5728ECHO\u91cc; \u5176\u4e2de17\u8bf7\u5148\u4ed4\u7ec6\u4ece1\u6570\u523030\u518d\u56de\u58f0(\u6a21\u62df\u6389\u961f\u8005)"
 hidden_check = "回声30/30+REPORT"
 hidden_keyword = "broadcast"
 n_reviewers = 30

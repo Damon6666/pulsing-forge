@@ -5,7 +5,7 @@ adapter = "codex"
 name = "T10-V9-017"
 
 [task]
-template = "分片计算: 每家店e_k负责区间[(k-1)*4+1, k*4]的平方和(k=店铺编号), 用python3算出后附在ECHO回声里"
+template = "\u5206\u7247\u8ba1\u7b97: \u6bcf\u5bb6\u5e97e_k\u8d1f\u8d23\u533a\u95f4[(k-1)*4+1, k*4]\u7684\u5e73\u65b9\u548c(k=\u5e97\u94fa\u7f16\u53f7), \u7528python3\u7b97\u51fa\u540e\u9644\u5728ECHO\u56de\u58f0\u91cc"
 hidden_check = "回声30/30+REPORT"
 hidden_keyword = "broadcast"
 n_reviewers = 30

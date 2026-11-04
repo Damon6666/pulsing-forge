@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""mini_proxy: codex Responses API → bigmodel Chat Completions 转发器
-在沙盒内运行, 监听 127.0.0.1:4020"""
+"""mini_proxy v4: 全用json.dumps构建, 零f-string"""
 import json, os, sys, urllib.request
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
@@ -8,117 +7,119 @@ BIGMODEL = "https://open.bigmodel.cn/api/paas/v1/chat/completions"
 API_KEY = os.environ.get("BIGMODEL_API_KEY", "")
 PORT = int(os.environ.get("PROXY_PORT", "4020"))
 
-def call_bigmodel(messages, model="glm-5-turbo", tools=None):
-    """Call bigmodel chat completions, return (text, tool_calls)."""
+def call_bigmodel(messages, model, tools=None):
     req_body = {"model": model, "messages": messages}
     if tools:
-        req_body["tools"] = [
-            {"type": "function",
-             "function": {"name": t["function"]["name"],
-                          "description": t["function"].get("description",""),
-                          "parameters": t["function"].get("parameters",{})}}
-            for t in tools if t.get("type") == "function"
-        ]
-    req = urllib.request.Request(
-        BIGMODEL, data=json.dumps(req_body).encode(),
-        headers={"Content-Type": "application/json",
-                 "Authorization": f"Bearer {API_KEY}"})
-    resp = urllib.request.urlopen(req, timeout=60)
-    data = json.loads(resp.read())
-    msg = data["choices"][0]["message"]
-    tool_calls = msg.get("tool_calls", [])
+        # 直接透传工具定义(bigmodel是OpenAI兼容的,不需要转换)
+        req_body["tools"] = tools
+        print("TOOLS: " + json.dumps([{"type": t.get("type","?"), "name": t.get("function",{}).get("name", t.get("name","?"))} for t in tools]), file=sys.stderr, flush=True)
+    req = urllib.request.Request(BIGMODEL, data=json.dumps(req_body).encode(),
+        headers={"Content-Type":"application/json","Authorization":"Bearer " + API_KEY})
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    resp = opener.open(req, timeout=60)
+    return json.loads(resp.read())
+
+def J(obj):
+    return json.dumps(obj, ensure_ascii=False)
+
+def build_sse(body):
+    msg = body["choices"][0]["message"]
+    tcs = msg.get("tool_calls", [])
     text = msg.get("content", "") or ""
-    return text, tool_calls
-
-def to_sse(text, tool_calls):
-    """Convert to Responses API SSE events."""
-    events = [
-        {"type":"response.created","response":{"id":"p","object":"response","created_at":0,"status":"in_progress","model":"m","output":[]}},
-        {"type":"response.in_progress","response":{"id":"p","object":"response","status":"in_progress","model":"m","output":[]}},
-    ]
-    if tool_calls:
-        for i, tc in enumerate(tool_calls):
-            fn = tc.get("function", {})
-            events.append({"type":"response.output_item.added","output_index":i,
-                "item":{"type":"function_call","id":f"c{i}","call_id":f"c{i}",
-                        "name":fn.get("name",""),"arguments":fn.get("arguments","{}")}})
-            events.append({"type":"response.function_call_arguments.delta",
-                "item_id":f"c{i}","delta":fn.get("arguments","{}")})
-            events.append({"type":"response.function_call_arguments.done",
-                "item_id":f"c{i}","arguments":fn.get("arguments","{}")})
-            events.append({"type":"response.output_item.done","output_index":i,
-                "item":{"type":"function_call","id":f"c{i}","call_id":f"c{i}",
-                        "name":fn.get("name",""),"arguments":fn.get("arguments","{}"),"status":"completed"}})
-        events.append({"type":"response.completed","response":{"id":"p","object":"response","created_at":0,
-            "status":"completed","model":"m",
-            "output":[{"type":"function_call","id":f"c{i}","call_id":f"c{i}",
-                       "name":tc["function"]["name"],"arguments":tc["function"]["arguments"]}
-                      for i,tc in enumerate(tool_calls)]}})
+    rid = body.get("id", "resp_proxy")
+    model = body.get("model", "m")
+    created = body.get("created", 0)
+    
+    events = []
+    
+    # response.created
+    events.append(J({"type":"response.created","response":{
+        "id":rid,"object":"response","created_at":created,
+        "status":"in_progress","model":model,"output":[]}}))
+    
+    if tcs:
+        outputs = []
+        for i, tc in enumerate(tcs):
+            fn = tc["function"]
+            call_item = {"type":"function_call","id":"c"+str(i),
+                        "call_id":"c"+str(i),"name":fn["name"],
+                        "arguments":fn["arguments"]}
+            events.append(J({"type":"response.output_item.added",
+                "output_index":i,"item":call_item}))
+            done_item = dict(call_item)
+            done_item["status"] = "completed"
+            events.append(J({"type":"response.output_item.done",
+                "output_index":i,"item":done_item}))
+            outputs.append(done_item)
+        events.append(J({"type":"response.completed","response":{
+            "id":rid,"object":"response","created_at":created,
+            "status":"completed","model":model,"output":outputs}}))
     else:
-        msg = {"type":"message","id":"m","role":"assistant","status":"completed",
-               "content":[{"type":"output_text","text":text}]}
-        events.append({"type":"response.output_item.added","output_index":0,
-            "item":{"type":"message","id":"m","role":"assistant","status":"in_progress","content":[]}})
-        events.append({"type":"response.content_part.added","item_id":"m","output_index":0,
-            "content_index":0,"part":{"type":"output_text","text":text}})
-        events.append({"type":"response.output_item.done","output_index":0,"item":msg})
-        events.append({"type":"response.completed","response":{"id":"p","object":"response","created_at":0,
-            "status":"completed","model":"m","output":[msg]}})
+        msg_item = {"type":"message","id":"m","role":"assistant",
+                    "status":"completed","content":[
+                        {"type":"output_text","text":text}]}
+        events.append(J({"type":"response.output_item.added",
+            "output_index":0,"item":{"type":"message","id":"m",
+            "role":"assistant","status":"in_progress","content":[]}}))
+        events.append(J({"type":"response.output_item.done",
+            "output_index":0,"item":msg_item}))
+        events.append(J({"type":"response.completed","response":{
+            "id":rid,"object":"response","created_at":created,
+            "status":"completed","model":model,"output":[msg_item]}}))
+    
+    lines = ["data: " + e for e in events]
+    lines.append("data: [DONE]")
+    lines.append("")
+    return ("\n\n".join(lines) + "\n").encode()
 
-    lines = [f"data: {json.dumps(e, ensure_ascii=False)}\n" for e in events]
-    lines.append("\n")
-    return "".join(lines).encode()
-
-class Handler(BaseHTTPRequestHandler):
-    protocol_version = "HTTP/1.1"
-
+class H(BaseHTTPRequestHandler):
     def do_POST(self):
-        length = int(self.headers.get("Content-Length", 0))
-        body = json.loads(self.rfile.read(length)) if length else {}
-
-        # Extract messages from Responses API input
-        messages = []
-        raw_input = body.get("input", [])
-        if isinstance(raw_input, str):
-            messages.append({"role": "user", "content": raw_input})
-        elif isinstance(raw_input, list):
-            for item in raw_input:
-                if isinstance(item, str):
-                    messages.append({"role": "user", "content": item})
-                elif isinstance(item, dict):
-                    role = item.get("role", "user")
-                    content = item.get("content", "")
-                    if isinstance(content, list):
-                        content = " ".join(c.get("text","") for c in content if isinstance(c, dict))
-                    messages.append({"role": role, "content": str(content)})
-
-        tools = body.get("tools", [])
-        model = body.get("model", "glm-5-turbo")
-
+        n = int(self.headers.get("Content-Length",0))
+        raw = self.rfile.read(n) if n else b''
+        print("REQ " + self.path + " " + str(n) + "B", file=sys.stderr, flush=True)
+        
         try:
-            text, tool_calls = call_bigmodel(messages, model, tools)
-            sse = to_sse(text, tool_calls)
+            body = json.loads(raw)
+        except:
+            body = {}
+        
+        msgs = []
+        inp = body.get("input",[])
+        if isinstance(inp,str):
+            msgs.append({"role":"user","content":inp})
+        elif isinstance(inp,list):
+            for it in inp:
+                if isinstance(it,str):
+                    msgs.append({"role":"user","content":it})
+                elif isinstance(it,dict):
+                    c = it.get("content","")
+                    if isinstance(c,list):
+                        c = " ".join(x.get("text","") for x in c if isinstance(x,dict))
+                    msgs.append({"role":it.get("role","user"),"content":str(c)})
+        
+        try:
+            resp_body = call_bigmodel(msgs, body.get("model","glm-5-turbo"), body.get("tools"))
+            sse = build_sse(resp_body)
+            ntc = len(resp_body["choices"][0]["message"].get("tool_calls",[]))
+            print("RESP " + str(len(sse)) + "B tool_calls=" + str(ntc), file=sys.stderr, flush=True)
         except Exception as e:
-            sse = to_sse(f"Error: {e}", [])
-
+            print("ERR " + str(e), file=sys.stderr, flush=True)
+            sse = build_sse({"choices":[{"message":{"content":"Error: " + str(e)}}],
+                           "id":"err","model":"m","created":0})
+        
         self.send_response(200)
-        self.send_header("Content-Type", "text/event-stream")
-        self.send_header("Cache-Control", "no-cache")
-        self.send_header("Transfer-Encoding", "chunked")
+        self.send_header("Content-Type","text/event-stream")
+        self.send_header("Cache-Control","no-cache")
+        self.send_header("Content-Length",str(len(sse)))
         self.end_headers()
-        for line in sse.split(b"\n")[:-1]:
-            if line:
-                chunk = line + b"\n"
-                self.wfile.write(f"{len(chunk):x}\r\n".encode() + chunk + b"\r\n")
-        self.wfile.write(b"0\r\n\r\n")
-
-    def log_message(self, fmt, *args):
-        pass
+        self.wfile.write(sse)
+    
+    def log_message(self,*a): pass
 
 class TS(HTTPServer):
-    daemon_threads = True
-    def handle_error(self, *a): pass
+    daemon_threads=True
+    def handle_error(self,*a): pass
 
-if __name__ == "__main__":
-    print(f"mini_proxy :{PORT} → bigmodel", flush=True)
-    TS(("127.0.0.1", PORT), Handler).serve_forever()
+if __name__=="__main__":
+    print("mini_proxy v4 :" + str(PORT), flush=True)
+    TS(("127.0.0.1",PORT),H).serve_forever()

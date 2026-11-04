@@ -67,15 +67,33 @@ pub fn handle_line(hub: &TideHub, line: &str) -> String {
             serde_json::to_string(&ToolReply::ok(&bodies.join("\n---\n"))).unwrap()
         }
         "pulsing_recall" => {
-            // 链式召回(Super-agent 吸收): 按信件序号从账本取全文 — 账本即登记处
+            // 链式召回(Super-agent 吸收): 按序号取全文, 或按关键词搜信
+            // (SA2挑战实证: 只按ID召回, 模型在33次召回里找不到目标信 — 需要搜索)
             let id = args["letter_id"].as_u64().unwrap_or(0);
+            let query = args["query"].as_str().unwrap_or("");
             let caller = args["_shop"].as_str().unwrap_or("unknown");
-            hub.journal.append_tool(caller, &format!("pulsing_recall letter_id={id}"));
-            match hub.journal.replay().into_iter().find(|l| l.seq == id) {
-                Some(l) => serde_json::to_string(&ToolReply::ok(&format!(
-                    "[信#{seq}] 来自 {from} → {to}: {body}", seq = l.seq, from = l.from, to = l.to, body = l.body
-                ))).unwrap(),
-                None => serde_json::to_string(&ToolReply::err(&format!("信件#{id}不存在(账本中查无此序号)"))).unwrap(),
+            hub.journal.append_tool(caller, &format!("pulsing_recall letter_id={id} query={query}"));
+            if !query.is_empty() {
+                let hits: Vec<String> = hub.journal.replay().into_iter()
+                    .filter(|l| l.body.contains(query))
+                    .take(5)
+                    .map(|l| format!("[信#{}] {}→{}: {}", l.seq, l.from, l.to,
+                        l.body.chars().take(80).collect::<String>()))
+                    .collect();
+                if hits.is_empty() {
+                    serde_json::to_string(&ToolReply::err(&format!("账本中无含\"{query}\"的信"))).unwrap()
+                } else {
+                    serde_json::to_string(&ToolReply::ok(&format!(
+                        "命中{}封(取全文用 letter_id):\n{}", hits.len(), hits.join("\n")
+                    ))).unwrap()
+                }
+            } else {
+                match hub.journal.replay().into_iter().find(|l| l.seq == id) {
+                    Some(l) => serde_json::to_string(&ToolReply::ok(&format!(
+                        "[信#{seq}] 来自 {from} → {to}: {body}", seq = l.seq, from = l.from, to = l.to, body = l.body
+                    ))).unwrap(),
+                    None => serde_json::to_string(&ToolReply::err(&format!("信件#{id}不存在(可改用 query=关键词 搜索)"))).unwrap(),
+                }
             }
         }
         "pulsing_health" => {
@@ -288,10 +306,11 @@ fn tools_schema() -> serde_json::Value {
          "description": "取走并清空自己信箱里的全部信",
          "inputSchema": {"type": "object", "properties": {}}},
         {"name": "pulsing_recall",
-         "description": "按信件序号从账本取回信件全文(截断信的全文/历史上下文召回)",
+         "description": "按信件序号取回全文, 或按关键词搜索账本信件(返回序号+摘要)",
          "inputSchema": {"type": "object", "properties": {
-             "letter_id": {"type": "integer", "description": "信#后的数字序号"}
-         }, "required": ["letter_id"]}},
+             "letter_id": {"type": "integer", "description": "信#后的数字序号(取全文)"},
+             "query": {"type": "string", "description": "关键词(搜索含它的信, 与letter_id二选一)"}
+         }}},
         {"name": "pulsing_health",
          "description": "查看系统健康状态",
          "inputSchema": {"type": "object", "properties": {}}},

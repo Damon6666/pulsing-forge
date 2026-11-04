@@ -2,25 +2,25 @@ orchestrator = "review"
 adapter = "codex"
 
 [[reviewers]]
-name = "r1"
-duty = "clamp逻辑与边界全面审查"
+name = "review_r1"
+duty = "clamp\u903b\u8f91\u4e0e\u8fb9\u754c\u5168\u9762\u5ba1\u67e5"
 keyword = "clamp"
 
 [[reviewers]]
-name = "r2"
-duty = "python语法与可运行性审查"
-keyword = "语法"
+name = "review_r2"
+duty = "python\u8bed\u6cd5\u4e0e\u53ef\u8fd0\u884c\u6027\u5ba1\u67e5"
+keyword = "\u8bed\u6cd5"
 
 [[reviewers]]
-name = "r3"
-duty = "交付格式审查: 必须带```python围栏"
-keyword = "围栏"
+name = "review_r3"
+duty = "\u4ea4\u4ed8\u683c\u5f0f\u5ba1\u67e5: \u5fc5\u987b\u5e26```python\u56f4\u680f"
+keyword = "\u56f4\u680f"
 
 [meta]
 name = "T6-V3-057"
 
 [task]
-template = "写一个python函数clamp(i,lo,hi), 全链走 写→审→改→交"
+template = "\u5199\u4e00\u4e2apython\u51fd\u6570clamp(i,lo,hi), \u5168\u94fe\u8d70 \u5199\u2192\u5ba1\u2192\u6539\u2192\u4ea4"
 hidden_check = "见 check_forge.py"
 hidden_keyword = "review"
 n_reviewers = 3

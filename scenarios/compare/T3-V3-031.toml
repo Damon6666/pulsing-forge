@@ -3,29 +3,29 @@ adapter = "codex"
 
 [[stages]]
 shop = "planner"
-duty = "写出clamp(i,lo,hi)初稿, 产出WORK=代码"
+duty = "\u5199\u51faclamp(i,lo,hi)\u521d\u7a3f, \u4ea7\u51faWORK=\u4ee3\u7801"
 
 [[stages]]
 shop = "writer"
-duty = "审查上游代码找bug并转发意见与代码"
+duty = "\u5ba1\u67e5\u4e0a\u6e38\u4ee3\u7801\u627ebug\u5e76\u8f6c\u53d1\u610f\u89c1\u4e0e\u4ee3\u7801"
 
 [[stages]]
 shop = "editor"
-duty = "按审查意见修复得到正确clamp转发"
+duty = "\u6309\u5ba1\u67e5\u610f\u89c1\u4fee\u590d\u5f97\u5230\u6b63\u786eclamp\u8f6c\u53d1"
 
 [[stages]]
 shop = "fmt"
-duty = "给最终代码加```python围栏格式化转发"
+duty = "\u7ed9\u6700\u7ec8\u4ee3\u7801\u52a0```python\u56f4\u680f\u683c\u5f0f\u5316\u8f6c\u53d1"
 
 [[stages]]
 shop = "pub"
-duty = "收尾REPORT出带围栏的最终clamp代码"
+duty = "\u6536\u5c3eREPORT\u51fa\u5e26\u56f4\u680f\u7684\u6700\u7ec8clamp\u4ee3\u7801"
 
 [meta]
 name = "T3-V3-031"
 
 [task]
-template = "写python函数clamp(i,lo,hi), 写→审→改→交, 最终REPORT带```python围栏"
+template = "\u5199python\u51fd\u6570clamp(i,lo,hi), \u5199\u2192\u5ba1\u2192\u6539\u2192\u4ea4, \u6700\u7ec8REPORT\u5e26```python\u56f4\u680f"
 hidden_check = "见 check_forge.py"
 hidden_keyword = "pipeline"
 n_reviewers = 0

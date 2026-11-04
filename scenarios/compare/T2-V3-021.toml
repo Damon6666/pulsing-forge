@@ -2,25 +2,25 @@ orchestrator = "review"
 adapter = "codex"
 
 [[reviewers]]
-name = "r1"
-duty = "clamp夹紧逻辑正确性审查"
+name = "review_r1"
+duty = "clamp\u5939\u7d27\u903b\u8f91\u6b63\u786e\u6027\u5ba1\u67e5"
 keyword = "clamp"
 
 [[reviewers]]
-name = "r2"
-duty = "边界条件审查(lo>hi、负数)"
-keyword = "边界"
+name = "review_r2"
+duty = "\u8fb9\u754c\u6761\u4ef6\u5ba1\u67e5(lo>hi\u3001\u8d1f\u6570)"
+keyword = "\u8fb9\u754c"
 
 [[reviewers]]
-name = "r3"
-duty = "代码风格与围栏格式审查"
-keyword = "格式"
+name = "review_r3"
+duty = "\u4ee3\u7801\u98ce\u683c\u4e0e\u56f4\u680f\u683c\u5f0f\u5ba1\u67e5"
+keyword = "\u683c\u5f0f"
 
 [meta]
 name = "T2-V3-021"
 
 [task]
-template = "写一个python函数clamp(i,lo,hi), 全链走 写→审→改→交"
+template = "\u5199\u4e00\u4e2apython\u51fd\u6570clamp(i,lo,hi), \u5168\u94fe\u8d70 \u5199\u2192\u5ba1\u2192\u6539\u2192\u4ea4"
 hidden_check = "见 check_forge.py"
 hidden_keyword = "review"
 n_reviewers = 3
