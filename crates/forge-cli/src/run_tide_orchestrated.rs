@@ -182,7 +182,17 @@ pub fn run_tide_orchestrated(sc: &crate::Scenario, run_dir: &str) -> String {
                 }
             });
             let shop_list: Vec<String> = hub2.shops.keys().cloned().collect();
+            // FORGE_REMOTE_SHOPS="e1,e2,..": 这些店的回合由远程沙盒的 worker
+            // 自行 drain+执行(forge cell), 本地调度器不为它们起 codex
+            let remote: Vec<String> = std::env::var("FORGE_REMOTE_SHOPS")
+                .unwrap_or_default()
+                .split(',').map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty()).collect();
             for s in shop_list {
+                if remote.contains(&s) {
+                    println!("店 {s} 为远程worker(跳过本地调度)");
+                    continue;
+                }
                 let h = hub2.clone();
                 let shop = s.clone();
                 let skip = setup_done_ts;

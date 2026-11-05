@@ -61,8 +61,9 @@ pub fn handle_line(hub: &TideHub, line: &str) -> String {
         "pulsing_drain_mail" => {
             let shop = args["_shop"].as_str().unwrap_or("unknown");
             let letters = hub.drain(shop);
+            // 按字符截断(中文信切字节会panic)
             let bodies: Vec<String> = letters.iter()
-                .map(|l| format!("[{}→{}] {}", l.from, l.to, &l.body[..l.body.len().min(200)]))
+                .map(|l| format!("[{}→{}] {}", l.from, l.to, l.body.chars().take(200).collect::<String>()))
                 .collect();
             serde_json::to_string(&ToolReply::ok(&bodies.join("\n---\n"))).unwrap()
         }
@@ -111,9 +112,11 @@ pub fn handle_line(hub: &TideHub, line: &str) -> String {
 }
 
 /// TCP 控制口服务器: 每连接一行命令一行回执
+/// FORGE_BIND=0.0.0.0 时对外监听(forge cell: 远程沙盒的 worker attach 进来)
 pub async fn serve_control(hub: Arc<TideHub>, port: u16) -> anyhow::Result<()> {
-    let listener = TcpListener::bind(("127.0.0.1", port)).await?;
-    println!("tide 控制口 listen=127.0.0.1:{port}");
+    let bind = std::env::var("FORGE_BIND").unwrap_or_else(|_| "127.0.0.1".to_string());
+    let listener = TcpListener::bind((bind.as_str(), port)).await?;
+    println!("tide 控制口 listen={bind}:{port}");
     loop {
         let (socket, _) = listener.accept().await?;
         let hub = hub.clone();
@@ -195,7 +198,8 @@ pub async fn run_tide(hub: Arc<TideHub>) -> anyhow::Result<()> {
 
 /// attach: MCP stdio → TCP 控制口桥
 /// codex 的 MCP 子进程; 读 stdin JSON-RPC, 转发工具调用到控制口, 写回 stdout
-pub async fn run_attach(control_port: u16, shop: Option<String>) -> anyhow::Result<()> {
+/// control_addr: "端口"(→127.0.0.1) 或完整 "ip:port"(forge cell 远程信箱)
+pub async fn run_attach(control_addr: String, shop: Option<String>) -> anyhow::Result<()> {
     use tokio::io::AsyncReadExt;
     let mut stdin = tokio::io::stdin();
     let mut stdout = tokio::io::stdout();
@@ -247,7 +251,7 @@ pub async fn run_attach(control_port: u16, shop: Option<String>) -> anyhow::Resu
                     }
                     // 转发到控制口
                     let fwd = serde_json::json!({"tool": tool, "args": args});
-                    let reply = forward_to_control(control_port, &fwd.to_string()).await;
+                    let reply = forward_to_control(&control_addr, &fwd.to_string()).await;
                     Some(serde_json::json!({
                         "jsonrpc": "2.0", "id": id,
                         "result": {"content": [{"type": "text", "text": reply}]}
@@ -270,8 +274,8 @@ pub async fn run_attach(control_port: u16, shop: Option<String>) -> anyhow::Resu
     Ok(())
 }
 
-async fn forward_to_control(port: u16, line: &str) -> String {
-    match TcpStream::connect(("127.0.0.1", port)).await {
+async fn forward_to_control(addr: &str, line: &str) -> String {
+    match TcpStream::connect(addr).await {
         Ok(mut stream) => {
             use tokio::io::AsyncWriteExt;
             if stream.write_all(format!("{line}\n").as_bytes()).await.is_err() {

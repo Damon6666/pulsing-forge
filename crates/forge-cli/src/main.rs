@@ -305,21 +305,28 @@ keyword = "keyword_d"
         return;
     }
     if args.len() >= 2 && args[1] == "attach" {
-        // forge attach --control <port> --shop <name> — MCP stdio→TCP 桥
-        // (由 codex 作为 MCP server 子进程调用)
-        let mut port = 12400u16;
+        // forge attach --control <port|ip:port> --shop <name> — MCP stdio→TCP 桥
+        // (由 codex 作为 MCP server 子进程调用; ip:port 形态用于 forge cell 远程信箱)
+        let mut control = "127.0.0.1:12400".to_string();
         let mut shop = None;
         let mut it = args.iter().peekable();
         while let Some(a) = it.next() {
             match a.as_str() {
-                "--control" => { if let Some(p) = it.next() { port = p.parse().unwrap_or(12400); } }
+                "--control" => {
+                    if let Some(p) = it.next() {
+                        control = match p.parse::<u16>() {
+                            Ok(port) => format!("127.0.0.1:{port}"),
+                            Err(_) => p.clone(),
+                        };
+                    }
+                }
                 "--shop" => { if let Some(s) = it.next() { shop = Some(s.clone()); } }
                 _ => {}
             }
         }
         let rt = tokio::runtime::Runtime::new().expect("rt");
         rt.block_on(async {
-            if let Err(e) = forge_runtime::run_attach(port, shop).await {
+            if let Err(e) = forge_runtime::run_attach(control, shop).await {
                 eprintln!("attach 错误: {e}");
             }
         });

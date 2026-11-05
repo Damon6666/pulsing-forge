@@ -296,7 +296,10 @@ impl TideHub {
         let _ = std::fs::remove_dir_all(&hdir);
         std::fs::create_dir_all(&hdir).map_err(|e| e.to_string())?;
 
-        let ctrl_addr = self.listen_port.to_string();
+        // FORGE_CTRL_ADDR="ip:port" 时, 本沙盒产生的 codex attach 到远程信箱
+        // (forge cell: 中央 TideHub 沙盒; 默认仅端口号=本机)
+        let ctrl_addr = std::env::var("FORGE_CTRL_ADDR")
+            .unwrap_or_else(|_| self.listen_port.to_string());
         std::fs::write(format!("{hdir}/config.toml"), self.codex_config(shop, &ctrl_addr))
             .map_err(|e| e.to_string())?;
 
