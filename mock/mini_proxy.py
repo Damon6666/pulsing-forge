@@ -16,17 +16,8 @@ UPSTREAM = os.environ.get("MINI_UPSTREAM", "https://api.z.ai/api/paas/v4/chat/co
 
 
 def _egress_default():
-    """Internal proxy IP is stable; sandbox DNS for the hostname is lossy.
-    Reuse the credentials the platform injected in env proxy vars, but pin
-    the internal IP. Never hardcode credentials here."""
-    if os.environ.get("MINI_PROXY"):
-        return os.environ["MINI_PROXY"]
-    for v in ("https_proxy", "HTTPS_PROXY", "http_proxy", "HTTP_PROXY"):
-        u = os.environ.get(v, "")
-        if "@" in u:
-            creds = u.split("//", 1)[1].split("@", 1)[0]
-            return "http://%s@10.12.113.61:23128" % creds
-    return "http://10.12.113.61:23128"
+    """Return egress proxy: prefer EGRESS_PROXY env, else default local."""
+    return os.environ.get("EGRESS_PROXY", "http://127.0.0.1:8080")
 
 
 EGRESS_PROXY = _egress_default()
