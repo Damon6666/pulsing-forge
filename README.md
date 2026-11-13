@@ -13,6 +13,10 @@ Forge gives every agent a **mailbox** and your team a **ledger**:
 - **Protocol legality is enforced by the tool layer, not prompts.** Recipient ACL, self-echo circuit breaker, broadcast collapse, auto-silenced review replies — the failure modes we tamed in 50+ stress rounds ship as primitives.
 - **Coordination is an `Orchestrator` trait, not a hardcoded loop.** Six built-ins compose the standard topologies: `relay` (information isolation, per-hop transforms), `pipeline` (staged hand-offs), `debate` (pro/con + arbitration), `saboteur` (fault injection + independent-verification consensus), `broadcast` (fan-out echo counting), `review` (write-review loop). The same orchestrator drives the deterministic tier and the live-LLM tier.
 
+## Heterogeneous multi-agent (codex + Claude Code + Aider)
+
+Three different agent frameworks collaborate on one task over a single mailbox, with unified identities, an append-only ledger, and role-based review (diagnose → fix → independent review → self-heal). See [hetero/](hetero/README.md) — animated mail-flow and a real issue-repair case included.
+
 ## The 5-minute path (Phase 0 target)
 
 ```bash

@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="930" viewBox="0 0 1400 930">
+<rect width="1400" height="930" fill="#FFFFFF"/>
+<text x="46" y="56" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="30" font-weight="bold" fill="#16324F">Pulsing 异构多 Agent 架构</text>
+<text x="46" y="86" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="15" fill="#5B7086">3 沙盒 × 3 框架 × 3 模型 × 1 信箱 · 真实安全 Issue 修复 · 全程账本可审计</text>
+<rect x="46" y="100" width="1308" height="3" fill="#4472C4"/>
+<g>
+<rect x="420" y="126" width="560" height="78" rx="10" fill="#F5F8FB" stroke="#16324F" stroke-width="2"/>
+<text x="700" y="157" text-anchor="middle" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="17" font-weight="bold" fill="#16324F">真实待修 Issue：公开仓库泄露内部拓扑</text>
+<text x="700" y="184" text-anchor="middle" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13.5" fill="#5B7086">硬编码内网代理地址与平台凭据格式（演示中已脱敏）· 源自安全审计待办</text>
+</g>
+<path d="M700,204 L700,252" stroke="#9FB8C9" stroke-width="2.5" marker-end="url(#arr)"/>
+<g>
+<rect x="330" y="256" width="740" height="104" rx="10" fill="#FFF2CC" stroke="#BF9000" stroke-width="2"/>
+<text x="700" y="286" text-anchor="middle" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="18" font-weight="bold" fill="#7F6000">TideHub 中央信箱 + 账本（TCP :12410）</text>
+<text x="700" y="312" text-anchor="middle" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13.5" fill="#595959">统一身份命名空间：chief · e1（Claude）· e2（Aider）· e3–e8（codex 线程）</text>
+<text x="700" y="336" text-anchor="middle" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13.5" fill="#595959">单行 JSON 协议 · 任务派发 / 结果回执 / 一票否决 / 自愈摘要 全部入账（20 封信）</text>
+</g>
+<path d="M700,360 L330,420" stroke="#9FB8C9" stroke-width="2" marker-end="url(#arr)"/>
+<path d="M700,360 L700,420" stroke="#9FB8C9" stroke-width="2" marker-end="url(#arr)"/>
+<path d="M700,360 L1070,420" stroke="#9FB8C9" stroke-width="2" marker-end="url(#arr)"/>
+<rect x="60" y="424" width="400" height="258" rx="10" fill="#DDEBF7" stroke="#4472C4" stroke-width="2"/>
+<text x="260.0" y="454" text-anchor="middle" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="16.5" font-weight="bold" fill="#16324F">沙盒 S1 · codex（glm-5-turbo）</text>
+<text x="260.0" y="476" text-anchor="middle" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13" fill="#5B7086">编排 + 诊断 + 终验 + 自愈</text>
+<text x="80" y="502" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13" fill="#5B7086">chief</text>
+<text x="168" y="502" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13" font-weight="bold" fill="#16324F">总编排（线程调度）</text>
+<text x="80" y="528" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13" fill="#5B7086">e3</text>
+<text x="168" y="528" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13" font-weight="normal" fill="#16324F">诊断：泄露审计 5 处</text>
+<text x="80" y="554" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13" fill="#5B7086">e4</text>
+<text x="168" y="554" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13" font-weight="normal" fill="#16324F">方案：去硬编码设计</text>
+<text x="80" y="580" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13" fill="#5B7086">e5</text>
+<text x="168" y="580" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13" font-weight="normal" fill="#16324F">终验：三项复核</text>
+<text x="80" y="606" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13" fill="#5B7086">e6</text>
+<text x="168" y="606" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13" font-weight="normal" fill="#16324F">自愈：最小重修</text>
+<text x="80" y="632" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13" fill="#5B7086">接入</text>
+<text x="168" y="632" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13" font-weight="normal" fill="#16324F">线程身份原生（内核补丁）</text>
+<rect x="500" y="424" width="400" height="258" rx="10" fill="#E2EFDA" stroke="#538135" stroke-width="2"/>
+<text x="700.0" y="454" text-anchor="middle" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="16.5" font-weight="bold" fill="#16324F">沙盒 S2 · Claude Code 2.1.3（glm-4.6）</text>
+<text x="700.0" y="476" text-anchor="middle" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13" fill="#5B7086">独立审查员</text>
+<text x="520" y="502" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13" fill="#5B7086">e1</text>
+<text x="608" y="502" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13" font-weight="bold" fill="#16324F">审查员（一票否决权）</text>
+<text x="520" y="528" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13" fill="#5B7086">接入</text>
+<text x="608" y="528" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13" font-weight="normal" fill="#16324F">MCP 桥 + attach 注入</text>
+<text x="520" y="554" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13" fill="#5B7086"></text>
+<text x="608" y="554" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13" font-weight="normal" fill="#16324F"></text>
+<text x="520" y="580" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13" fill="#5B7086"></text>
+<text x="608" y="580" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13" font-weight="normal" fill="#16324F"></text>
+<text x="520" y="606" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13" fill="#5B7086"></text>
+<text x="608" y="606" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13" font-weight="normal" fill="#16324F"></text>
+<text x="520" y="632" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13" fill="#5B7086"></text>
+<text x="608" y="632" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13" font-weight="normal" fill="#16324F"></text>
+<rect x="584.0" y="646" width="232" height="28" rx="14" fill="#538135"/>
+<text x="700.0" y="665" text-anchor="middle" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="12.5" font-weight="bold" fill="#FFFFFF">抓获：修复掏空 → verdict=CONCERNS</text>
+<rect x="940" y="424" width="400" height="258" rx="10" fill="#FCE4D6" stroke="#C55A11" stroke-width="2"/>
+<text x="1140.0" y="454" text-anchor="middle" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="16.5" font-weight="bold" fill="#16324F">沙盒 S3 · Aider 0.86（glm-4-flash）</text>
+<text x="1140.0" y="476" text-anchor="middle" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13" fill="#5B7086">低成本修复工</text>
+<text x="960" y="502" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13" fill="#5B7086">e2</text>
+<text x="1048" y="502" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13" font-weight="bold" fill="#16324F">修复工（3 文件改动）</text>
+<text x="960" y="528" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13" fill="#5B7086">接入</text>
+<text x="1048" y="528" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13" font-weight="normal" fill="#16324F">TCP 直连信箱（无 MCP）</text>
+<text x="960" y="554" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13" fill="#5B7086"></text>
+<text x="1048" y="554" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13" font-weight="normal" fill="#16324F"></text>
+<text x="960" y="580" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13" fill="#5B7086"></text>
+<text x="1048" y="580" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13" font-weight="normal" fill="#16324F"></text>
+<text x="960" y="606" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13" fill="#5B7086"></text>
+<text x="1048" y="606" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13" font-weight="normal" fill="#16324F"></text>
+<text x="960" y="632" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13" fill="#5B7086"></text>
+<text x="1048" y="632" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13" font-weight="normal" fill="#16324F"></text>
+<rect x="1024.0" y="646" width="232" height="28" rx="14" fill="#C55A11"/>
+<text x="1140.0" y="665" text-anchor="middle" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="12.5" font-weight="bold" fill="#FFFFFF">事故：284 行 / 9 函数 → 28 行 / 0 函数</text>
+<text x="46" y="722" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="15.5" font-weight="bold" fill="#16324F">修复流水线 · 总墙钟 1019s ≈ 17 分钟（一把 API Key）</text>
+<rect x="46" y="740" width="531.98233562316" height="44" rx="5" fill="#4472C4" opacity="0.9"/>
+<text x="56" y="760" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13" font-weight="bold" fill="#FFFFFF">A 诊断（2 线程）</text>
+<text x="56" y="777" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="12" fill="#FFFFFF">416s</text>
+<rect x="579.98233562316" y="740" width="347.1422963689892" height="44" rx="5" fill="#C55A11" opacity="0.9"/>
+<text x="589.98233562316" y="760" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13" font-weight="bold" fill="#FFFFFF">B Aider 修复</text>
+<text x="589.98233562316" y="777" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="12" fill="#FFFFFF">272s</text>
+<rect x="929.1246319921493" y="740" width="114.80863591756624" height="44" rx="5" fill="#538135" opacity="0.9"/>
+<text x="939.1246319921493" y="760" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13" font-weight="bold" fill="#FFFFFF">C 审查否决</text>
+<text x="939.1246319921493" y="777" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="12" fill="#FFFFFF">91s</text>
+<rect x="1045.9332679097156" y="740" width="306.0667320902846" height="44" rx="5" fill="#7030A0" opacity="0.9"/>
+<text x="1055.9332679097156" y="760" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13" font-weight="bold" fill="#FFFFFF">D 自愈收口</text>
+<text x="1055.9332679097156" y="777" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="12" fill="#FFFFFF">240s</text>
+<rect x="46" y="800" width="1308" height="104" rx="10" fill="#F5F8FB" stroke="#9FB8C9" stroke-width="1.5"/>
+<text x="70" y="828" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="15" font-weight="bold" fill="#16324F">异构协作的三条实质产出</text>
+<rect x="70" y="842" width="410" height="46" rx="8" fill="#FFFFFF" stroke="#9FB8C9" stroke-width="1.2"/>
+<text x="84" y="862" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13" font-weight="bold" fill="#4472C4">价格分层</text>
+<text x="84" y="880" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="11.8" fill="#5B7086">便宜快模型干粗活（修复），强模型把关（审查），成本与质量兼得</text>
+<rect x="500" y="842" width="410" height="46" rx="8" fill="#FFFFFF" stroke="#9FB8C9" stroke-width="1.2"/>
+<text x="514" y="862" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13" font-weight="bold" fill="#4472C4">对抗互检</text>
+<text x="514" y="880" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="11.8" fill="#5B7086">同构同模型审查易复现同一盲区；异构审查员抓获掏空式修复</text>
+<rect x="930" y="842" width="410" height="46" rx="8" fill="#FFFFFF" stroke="#9FB8C9" stroke-width="1.2"/>
+<text x="944" y="862" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="13" font-weight="bold" fill="#4472C4">全程可审计</text>
+<text x="944" y="880" font-family="Microsoft YaHei, Noto Sans SC, PingFang SC, sans-serif" font-size="11.8" fill="#5B7086">20 封信入账，每一步派发 / 回执 / 否决 / 自愈均可回放</text>
+<defs>
+<marker id="arr" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+<path d="M0,0 L8,4.5 L0,9 Z" fill="#9FB8C9"/>
+</marker>
+</defs>
+</svg>

@@ -1,0 +1,41 @@
+# 异构多 Agent 集群配置模板
+# 复制为 configs/fleet.toml 后按实际环境填写。
+# 注意：所有 Key 走环境变量，不写本文件。
+
+[hub]
+host = "10.0.0.1"          # S1 内网 IP
+port = 12410
+bind = "0.0.0.0"
+
+[roster]
+# 店册：chief + e1..e8；e1=Claude 审查、e2=Aider 修复、e3..e8=codex 线程
+shops = ["chief", "e1", "e2", "e3", "e4", "e5", "e6", "e7", "e8"]
+
+[s1.codex]
+host = "10.0.0.1"
+codex_bin = "/w/codex-native"
+model = "glm-5-turbo"
+base_url = "http://<relay-host>:4020/v1"
+shop = "chief"
+shop_base = 2              # 线程身份从 e3 开始（e1/e2 留给外部框架）
+
+[s2.claude]
+host = "10.0.0.2"
+runner = "node bridge/claude-host.mjs"
+model = "glm-4.6"
+workers = ["e1"]
+anthropic_base_url = "https://api.z.ai/api/anthropic"
+
+[s3.aider]
+host = "10.0.0.3"
+model = "glm-4-flash"
+worker = "e2"
+repo_path = "/w/repo"      # 待修复仓库路径
+openai_base_url = "https://api.z.ai/api/paas/v4"
+
+[pipeline]
+# 阶段耗时预算（秒），用于编排超时
+timeout_diagnose = 900
+timeout_fix = 600
+timeout_review = 300
+timeout_heal = 600

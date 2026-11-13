@@ -1,0 +1,46 @@
+# 演示任务：真实安全 Issue 修复（脱敏版）
+# 用于验证异构流水线：诊断 → 修复 → 独立审查 → 自愈
+
+[meta]
+name = "issue-repair"
+description = "公开仓库泄露内部拓扑：硬编码内网代理地址与凭据格式（3 个文件）"
+
+[issue]
+# 原始 issue 摘要（地址已脱敏）
+summary = """
+公开仓库 pulsing-forge 泄露内部拓扑：
+- mock/mini_proxy.py 第 28-29 行硬编码内网代理 10.x.x.x:23128（凭据拼接后访问）
+- docs/sandbox-llm-access.md 多处内嵌该地址与平台凭据格式
+- compare/check_sa.py 附加硬编码密令
+影响：任何外部读者可获取内网地址与凭据使用方式。
+要求：清除全部硬编码，改为环境变量读取；改动最小化；不得删除无关逻辑。
+"""
+
+[phases.diagnose]
+# e3、e4 双线程并行
+agents = ["e3", "e4"]
+goal = "e3 产出泄露审计报告（全文定位）；e4 产出修复方案（去硬编码设计）"
+
+[phases.fix]
+agent = "e2"               # Aider（低成本模型）
+goal = "按 FIX-TASK 修改 3 个文件，回执含 diff 与本地验证结果"
+mechanical_gates = ["grep 残留检查", "py_compile / 编译通过"]
+
+[phases.review]
+agent = "e1"               # Claude Code（不同框架、不同模型）
+goal = "独立审查 diff：是否最小修复、功能是否保全、有无副作用"
+verdict_format = "verdict=PASS|CONCERNS + 修改边界（3 句以内）"
+veto = true
+
+[phases.heal]
+agents = ["e5", "e6"]
+goal = "e5 终验三项（地址清零、函数数量一致、编译通过）；e6 最小重修"
+new_gate = "函数计数一致（修复前后函数数必须相等）"
+
+[acceptance]
+gates = [
+  "grep 内网地址残留 = 0",
+  "核心函数数量修复前后一致",
+  "py_compile / 编译器通过",
+  "账本 20 封信完整可回放",
+]
